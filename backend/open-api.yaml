@@ -1,0 +1,929 @@
+openapi: 3.0.3
+info:
+  title: API Banco de Alimentos - Especificación Unificada
+  version: 1.0.0
+  description: |
+    Contrato de API REST unificado para el Sistema Provincial Banco de Alimentos (Escenario 1B).
+    Sigue el Modelo de Madurez de Richardson Nivel 2, Problem Details (RFC 7807/9457) para errores,
+    versionado explícito en URL (`/api/v1/`) y seguridad JWT (OIDC).
+
+servers:
+  - url: http://localhost:8080
+    description: Servidor local de desarrollo
+
+tags:
+  - name: Autenticación
+  - name: Usuarios
+  - name: Depósitos
+  - name: Inventario
+  - name: Distribución y Entregas
+  - name: Comedores (ACL)
+  - name: Auditoría y Rendición
+
+paths:
+  # --- MÓDULO 1: AUTENTICACIÓN Y USUARIOS ---
+  /api/v1/auth/login:
+    post:
+      summary: Autenticar usuario y obtener Token JWT
+      tags: [Autenticación]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Autenticación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /api/v1/usuarios/me:
+    get:
+      summary: Obtener perfil del usuario autenticado
+      tags: [Usuarios]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Perfil obtenido correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioPerfilResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  # --- MÓDULO 2: INVENTARIO Y DEPÓSITOS ---
+  /api/v1/depositos:
+    get:
+      summary: Listar depósitos regionales
+      tags: [Depósitos]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Listado obtenido correctamente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DepositoResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /api/v1/depositos/{depositoId}/stock:
+    get:
+      summary: Consultar stock de lotes en un depósito
+      tags: [Depósitos, Inventario]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: depositoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Stock obtenido correctamente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockLoteResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /api/v1/ingresos:
+    post:
+      summary: Registrar ingreso de un nuevo lote
+      tags: [Inventario]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrarIngresoRequest'
+      responses:
+        '201':
+          description: Ingreso y lote creados exitosamente.
+          headers:
+            Location:
+              schema:
+                type: string
+              example: "/api/v1/lotes/a1b2c3d4-e5f6-7890-1234-567890abcdef"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngresoResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '409':
+          $ref: '#/components/responses/409Conflict'
+
+  /api/v1/lotes/{loteId}:
+    get:
+      summary: Consultar detalle de un lote
+      tags: [Inventario]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: loteId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle del lote obtenido correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoteDetalleResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  # --- MÓDULO 3: DISTRIBUCIÓN Y ENTREGAS ---
+  /api/v1/entregas:
+    post:
+      summary: Registrar entrega a comedor
+      tags: [Distribución y Entregas]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrarEntregaRequest'
+      responses:
+        '201':
+          description: Entrega registrada exitosamente.
+          headers:
+            Location:
+              schema:
+                type: string
+              example: "/api/v1/entregas/e9f8c7b6-a543-2109-8765-43210fedcba9"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntregaResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '409':
+          $ref: '#/components/responses/409Conflict'
+
+    get:
+      summary: Listar entregas con filtros
+      tags: [Distribución y Entregas]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: depositoId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: comedorId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: estado
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDIENTE, ENTREGADO, CANCELADO]
+        - name: fechaDesde
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: fechaHasta
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Listado de entregas obtenido exitosamente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EntregaResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /api/v1/entregas/{entregaId}:
+    get:
+      summary: Consultar detalle de una entrega
+      tags: [Distribución y Entregas]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: entregaId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle de entrega obtenido correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntregaDetalleResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /api/v1/entregas/{entregaId}/recepcion:
+    patch:
+      summary: Confirmar recepción física en el comedor
+      tags: [Distribución y Entregas]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: entregaId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecepcionEntregaRequest'
+      responses:
+        '200':
+          description: Recepción confirmada exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntregaResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  # --- MÓDULO 4: COMEDORES Y PADRÓN PROVINCIAL (ACL) ---
+  /api/v1/comedores:
+    get:
+      summary: Listar o buscar comedores habilitados
+      tags: [Comedores (ACL)]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: nombre
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: municipio
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Listado de comedores obtenido correctamente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ComedorResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /api/v1/comedores/{comedorId}:
+    get:
+      summary: Consultar estado de habilitación de un comedor
+      tags: [Comedores (ACL)]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: comedorId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Datos del comedor obtenidos correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComedorResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /api/v1/comedores/sincronizar:
+    post:
+      summary: Sincronizar caché local con la API del Padrón Provincial
+      tags: [Comedores (ACL)]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Sincronización finalizada correctamente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensaje:
+                    type: string
+                    example: "Sincronización con Padrón Provincial completada."
+                  registrosActualizados:
+                    type: integer
+                    example: 12
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '502':
+          description: Error de comunicación con la API externa del Padrón Provincial.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: "https://api.bancodealimentos.gob.ar/problemas/error-sistema-externo"
+                title: "Error en sistema externo"
+                status: 502
+                detail: "La API del Padrón Provincial no respondió en el tiempo límite estipulado."
+                instance: "/api/v1/comedores/sincronizar"
+
+  # --- MÓDULO 5: AUDITORÍA Y RENDICIÓN DE CUENTAS ---
+  /api/v1/auditoria/lotes/{loteId}/historial:
+    get:
+      summary: Reconstruir línea de tiempo e historial inmutable de un lote
+      tags: [Auditoría y Rendición]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: loteId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Historial inmutable de auditoría obtenido correctamente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistorialLoteMovimientoResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /api/v1/rendiciones/procesar-nocturno:
+    post:
+      summary: Ejecutar proceso batch nocturno de rendición al Ministerio
+      tags: [Auditoría y Rendición]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Proceso batch nocturno ejecutado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcesarRendicionResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+
+  /api/v1/rendiciones/historial:
+    get:
+      summary: Consultar historial de lotes nocturnos enviados al Ministerio
+      tags: [Auditoría y Rendición]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Historial de rendiciones obtenido correctamente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RendicionHistorialResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    400BadRequest:
+      description: Solicitud inválida o mal formateada.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    401Unauthorized:
+      description: No autenticado. Token ausente o expirado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    403Forbidden:
+      description: Permisos insuficientes para realizar la acción.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    404NotFound:
+      description: Recurso no encontrado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    409Conflict:
+      description: Conflicto con el estado del recurso o regla de negocio.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    # --- Autenticación y Usuarios ---
+    LoginRequest:
+      type: object
+      required: [usuario, password]
+      properties:
+        usuario:
+          type: string
+          format: email
+          example: "voluntario.deposito1@bancodealimentos.gob.ar"
+        password:
+          type: string
+          format: password
+          example: "PasswordSegura123!"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        tokenType:
+          type: string
+          example: "Bearer"
+        expiresIn:
+          type: integer
+          example: 3600
+        usuario:
+          $ref: '#/components/schemas/UsuarioPerfilResponse'
+
+    UsuarioPerfilResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "u1234567-e89b-12d3-a456-426614174000"
+        nombre:
+          type: string
+          example: "Juan Pérez"
+        email:
+          type: string
+          format: email
+          example: "voluntario.deposito1@bancodealimentos.gob.ar"
+        rol:
+          type: string
+          enum: [Voluntario, ReferenteComedor, Coordinador]
+          example: "Voluntario"
+        depositoAsignadoId:
+          type: string
+          format: uuid
+          nullable: true
+          example: "d3b07384-d113-40e4-a123-167162354a01"
+
+    # --- Inventario y Depósitos ---
+    DepositoResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "d3b07384-d113-40e4-a123-167162354a01"
+        nombre:
+          type: string
+          example: "Depósito Regional La Plata"
+        direccion:
+          type: string
+          example: "Calle 50 y 120, La Plata"
+        telefono:
+          type: string
+          example: "+54 221 456-7890"
+
+    StockLoteResponse:
+      type: object
+      properties:
+        loteId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        codigoLote:
+          type: string
+          example: "LOT-2026-0915"
+        alimento:
+          type: string
+          example: "Leche Larga Vida 1L"
+        cantidadDisponible:
+          type: integer
+          example: 150
+        fechaVencimiento:
+          type: string
+          format: date
+          example: "2027-03-31"
+        donante:
+          type: string
+          example: "Lácteos del Sur S.A."
+
+    RegistrarIngresoRequest:
+      type: object
+      required: [depositoId, codigoLote, alimentoNombre, cantidadInicial, fechaVencimiento]
+      properties:
+        depositoId:
+          type: string
+          format: uuid
+          example: "d3b07384-d113-40e4-a123-167162354a01"
+        codigoLote:
+          type: string
+          example: "LOT-2026-1021"
+        alimentoNombre:
+          type: string
+          example: "Arroz Largo Fino 1kg"
+        cantidadInicial:
+          type: integer
+          minimum: 1
+          example: 500
+        fechaVencimiento:
+          type: string
+          format: date
+          example: "2028-06-30"
+        donanteNombre:
+          type: string
+          example: "Molinos del Plata"
+
+    IngresoResponse:
+      type: object
+      properties:
+        ingresoId:
+          type: string
+          format: uuid
+          example: "i9876543-e89b-12d3-a456-426614174000"
+        loteId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        codigoLote:
+          type: string
+          example: "LOT-2026-1021"
+        fechaIngreso:
+          type: string
+          format: date-time
+          example: "2026-10-21T09:30:00Z"
+        cantidadInicial:
+          type: integer
+          example: 500
+        depositoId:
+          type: string
+          format: uuid
+          example: "d3b07384-d113-40e4-a123-167162354a01"
+
+    LoteDetalleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        codigoLote:
+          type: string
+          example: "LOT-2026-1021"
+        depositoId:
+          type: string
+          format: uuid
+          example: "d3b07384-d113-40e4-a123-167162354a01"
+        alimentoNombre:
+          type: string
+          example: "Arroz Largo Fino 1kg"
+        cantidadInicial:
+          type: integer
+          example: 500
+        cantidadDisponible:
+          type: integer
+          example: 350
+        fechaIngreso:
+          type: string
+          format: date-time
+          example: "2026-10-21T09:30:00Z"
+        fechaVencimiento:
+          type: string
+          format: date
+          example: "2028-06-30"
+        donanteNombre:
+          type: string
+          example: "Molinos del Plata"
+        estado:
+          type: string
+          example: "DISPONIBLE"
+
+    # --- Distribución y Entregas ---
+    RegistrarEntregaRequest:
+      type: object
+      required: [depositoId, comedorId, lotes]
+      properties:
+        depositoId:
+          type: string
+          format: uuid
+          example: "d3b07384-d113-40e4-a123-167162354a01"
+        comedorId:
+          type: string
+          format: uuid
+          example: "c8e12345-e89b-12d3-a456-426614174000"
+        lotes:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [loteId, cantidad]
+            properties:
+              loteId:
+                type: string
+                format: uuid
+                example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+              cantidad:
+                type: integer
+                minimum: 1
+                example: 50
+
+    EntregaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "e9f8c7b6-a543-2109-8765-43210fedcba9"
+        depositoId:
+          type: string
+          format: uuid
+          example: "d3b07384-d113-40e4-a123-167162354a01"
+        comedorId:
+          type: string
+          format: uuid
+          example: "c8e12345-e89b-12d3-a456-426614174000"
+        fechaEntrega:
+          type: string
+          format: date-time
+          example: "2026-10-21T11:00:00Z"
+        estado:
+          type: string
+          example: "CONFIRMADA"
+        lotes:
+          type: array
+          items:
+            type: object
+            properties:
+              loteId:
+                type: string
+                format: uuid
+                example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+              cantidad:
+                type: integer
+                example: 50
+
+    EntregaDetalleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "e9f8c7b6-a543-2109-8765-43210fedcba9"
+        depositoNombre:
+          type: string
+          example: "Depósito Regional La Plata"
+        comedorNombre:
+          type: string
+          example: "Comedor Los Halcones"
+        fechaEntrega:
+          type: string
+          format: date-time
+          example: "2026-10-21T11:00:00Z"
+        fechaRecepcion:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-10-21T14:30:00Z"
+        estado:
+          type: string
+          example: "ENTREGADO"
+        lotes:
+          type: array
+          items:
+            type: object
+            properties:
+              loteId:
+                type: string
+                format: uuid
+              codigoLote:
+                type: string
+                example: "LOT-2026-1021"
+              alimentoNombre:
+                type: string
+                example: "Arroz Largo Fino 1kg"
+              cantidad:
+                type: integer
+                example: 50
+
+    RecepcionEntregaRequest:
+      type: object
+      required: [recepcionConforme]
+      properties:
+        recepcionConforme:
+          type: boolean
+          example: true
+        observaciones:
+          type: string
+          nullable: true
+          example: "Mercadería recibida en perfecto estado."
+
+    # --- Comedores (ACL) ---
+    ComedorResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c8e12345-e89b-12d3-a456-426614174000"
+        padronId:
+          type: string
+          example: "PADRON-BA-901"
+        nombre:
+          type: string
+          example: "Comedor Los Halcones"
+        municipio:
+          type: string
+          example: "La Plata"
+        direccion:
+          type: string
+          example: "Calle 140 Nro 850"
+        estadoHabilitacion:
+          type: string
+          example: "HABILITADO"
+        ultimaSincronizacion:
+          type: string
+          format: date-time
+          example: "2026-10-21T04:00:00Z"
+
+    # --- Auditoría y Rendición ---
+    HistorialLoteMovimientoResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "h1122334-e89b-12d3-a456-426614174000"
+        loteId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        fechaHora:
+          type: string
+          format: date-time
+          example: "2026-10-21T09:30:00Z"
+        tipoMovimiento:
+          type: string
+          example: "INGRESO_DONACION"
+        cantidadAfectada:
+          type: integer
+          example: 500
+        saldoResultante:
+          type: integer
+          example: 500
+        usuarioResponsable:
+          type: string
+          example: "voluntario.deposito1@bancodealimentos.gob.ar"
+        detalle:
+          type: string
+          example: "Ingreso inicial de donación Molinos del Plata"
+
+    ProcesarRendicionResponse:
+      type: object
+      properties:
+        rendicionId:
+          type: string
+          format: uuid
+          example: "r5566778-e89b-12d3-a456-426614174000"
+        fechaProcesamiento:
+          type: string
+          format: date-time
+          example: "2026-10-21T23:59:00Z"
+        totalEntregasProcesadas:
+          type: integer
+          example: 45
+        estadoEnvioMinisterio:
+          type: string
+          example: "ENVIADO_SUCCESS"
+
+    RendicionHistorialResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "r5566778-e89b-12d3-a456-426614174000"
+        fechaRendicion:
+          type: string
+          format: date-time
+          example: "2026-10-20T23:59:00Z"
+        cantidadEntregas:
+          type: integer
+          example: 52
+        estado:
+          type: string
+          example: "ACEPTADO_MINISTERIO"
+        nombreArchivoLote:
+          type: string
+          example: "RENDICION_20261020_BATCH01.json"
+
+    # --- Manejo Estándar de Errores (RFC 7807) ---
+    ProblemDetails:
+      type: object
+      required: [type, title, status, detail, instance]
+      properties:
+        type:
+          type: string
+          format: uri
+          example: "https://api.bancodealimentos.gob.ar/problemas/solicitud-invalida"
+        title:
+          type: string
+          example: "Solicitud inválida"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "El campo depositoId es obligatorio."
+        instance:
+          type: string
+          format: uri
+          example: "/api/v1/entregas"
