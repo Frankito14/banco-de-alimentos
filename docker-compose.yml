@@ -1,0 +1,79 @@
+version: '3.8'
+services:
+  # DB
+  db:
+    image: postgres:16-alpine
+    container_name: tp_banco_alimentos_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  # BE
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tp_banco_alimentos_backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      PORT: 3000
+    ports:
+      - "${PORT_BACKEND}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  # FE
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tp_banco_alimentos_frontend
+    restart: unless-stopped
+    ports:
+      - "${PORT_FRONTEND}:80"
+    environment:
+      VITE_API_URL: http://localhost:${PORT_BACKEND}
+    depends_on:
+      - backend
+    networks:
+      - backend
+
+  # Doc
+  swagger-ui:
+    image: swaggerapi/swagger-ui:v5.11.0
+    container_name: tp_banco_alimentos_swagger
+    restart: unless-stopped
+    ports:
+      - "${PORT_SWAGGER}:8080"
+    environment:
+      SWAGGER_JSON: /spec/openapi.yaml
+    volumes:
+      - ./openapi.yaml:/spec/openapi.yaml:ro
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
