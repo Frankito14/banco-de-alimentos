@@ -1,0 +1,20 @@
+
+FROM haskell:9.6 AS build
+WORKDIR /app
+
+COPY main.cabal ./
+RUN cabal update && cabal build --only-dependencies -j
+
+COPY app ./app
+RUN cabal build -j && cp "$(cabal list-bin padron-provincial)" /app/padron-provincial
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libgmp10 ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /app/padron-provincial /usr/local/bin/padron-provincial
+
+ENV PORT=8080 LANG=C.UTF-8
+EXPOSE 8080
+CMD ["padron-provincial"]
