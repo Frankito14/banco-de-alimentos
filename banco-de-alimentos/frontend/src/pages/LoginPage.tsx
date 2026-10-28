@@ -60,23 +60,10 @@ export const LoginPage: React.FC = () => {
         <h2 className="text-3xl font-extrabold text-white tracking-tight">
           Banco de Alimentos
         </h2>
-        <p className="mt-2 text-sm text-emerald-200">
-          Red Provincial de Distribución · Escenario 1B
-        </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 shadow-2xl rounded-2xl sm:px-10 border border-slate-100">
-          <div className="mb-6 pb-4 border-b border-slate-100">
-            <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4" />
-              Autenticación OIDC / OAuth 2.0 (RFC 7807)
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Acceso federado por roles según padrón provincial.
-            </p>
-          </div>
-
           <ProblemAlert problem={problem} onDismiss={() => setProblem(null)} />
 
           <form onSubmit={handleSubmit} className="space-y-4">

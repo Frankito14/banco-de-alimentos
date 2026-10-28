@@ -49,10 +49,6 @@ export const InicioPage: React.FC = () => {
       <div className="bg-gradient-to-r from-emerald-800 to-teal-900 rounded-2xl p-6 sm:p-8 text-white shadow-lg mb-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-700/60 text-emerald-200 text-xs font-semibold mb-3">
-              <ShieldCheck className="w-4 h-4" />
-              Sesión Verificada · Rol: {usuario.rol}
-            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Bienvenido, {usuario.nombre}
             </h1>
