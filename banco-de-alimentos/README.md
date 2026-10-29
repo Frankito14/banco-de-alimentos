@@ -39,3 +39,28 @@ El **Sistema Provincial Banco de Alimentos** es una plataforma destinada a gesti
   * Todo movimiento o cambio en el historial de un lote queda registrado de forma inmutable e inalterable.
   * Ningún hecho o registro del pasado puede borrarse o modificarse.
   * Las correcciones por errores de registro se realizan mediante **movimientos compensatorios** (ajustes de saldo) que preservan el historial completo.
+
+---
+
+## 🔑 Backend en modo desarrollo (sin Firebase)
+
+Mientras no esté conectado Firebase, el backend solo arranca en modo desarrollo, con la variable `AUTH_FAKE=true`. En ese modo acepta tokens fijos de usuarios de prueba en vez de validar contra Firebase.
+
+**Con npm** (desde `backend/`):
+
+| Terminal | Comando |
+|---|---|
+| PowerShell | `$env:AUTH_FAKE='true'; npm run start:dev` |
+| Bash | `AUTH_FAKE=true npm run start:dev` |
+
+**Con Docker Compose:** `AUTH_FAKE=true docker compose up`, o agregar `AUTH_FAKE=true` al archivo `.env`.
+
+**Usuarios de prueba** (header `Authorization: Bearer <token>`):
+
+| Token | Rol |
+|---|---|
+| `token-voluntario` | Voluntario |
+| `token-referente` | ReferenteComedor |
+| `token-coordinador` | Coordinador |
+
+Sin `AUTH_FAKE=true` el modo desarrollo está apagado: el backend usa Firebase y estos tokens no funcionan.

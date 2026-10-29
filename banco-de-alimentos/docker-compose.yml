@@ -34,6 +34,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       PORT: 3000
+      AUTH_FAKE: ${AUTH_FAKE:-false} # solo para desarrollo, pa que levante la app sin Firebase
     ports:
       - "${PORT_BACKEND}:3000"
     depends_on:
