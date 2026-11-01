@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   # DB
   db:
@@ -20,6 +19,45 @@ services:
     networks:
       - backend
 
+  # Cache
+  redis:
+    image: redis:7-alpine
+    container_name: tp_banco_alimentos_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  # Cola de mensajería
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: tp_banco_alimentos_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # panel de administración
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - backend
+
   # BE
   backend:
     build:
@@ -38,28 +76,19 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
       OIDC_ISSUER: ${OIDC_ISSUER}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
+      PADRON_PROVINCIAL_URL: http://host.docker.internal:6767
+      RENDICION_CUENTAS_URL: http://host.docker.internal:7777
     ports:
       - "${PORT_BACKEND}:3000"
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - backend
-  
-  # Redis
-    redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - redis_data:/data
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - backend
 
@@ -89,7 +118,9 @@ services:
     environment:
       SWAGGER_JSON: /spec/openapi.yaml
     volumes:
-      - ./openapi.yaml:/spec/openapi.yaml:ro
+      - ./backend/open-api.yaml:/spec/openapi.yaml:ro
+    networks:
+      - backend
 
 networks:
   backend:
@@ -97,4 +128,5 @@ networks:
 
 volumes:
   pgdata:
-    driver: local
+  redis_data:
+  rabbitmq_data:

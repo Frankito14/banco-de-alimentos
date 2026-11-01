@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  padron-provincial:
+    build:
+      context: ./padron-provincial
+      dockerfile: DockerFile
+    container_name: mock_padron_provincial
+    restart: unless-stopped
+    environment:
+      PORT: 6767
+    ports:
+      - "6767:6767"
+
+  rendicion-cuentas:
+    build:
+      context: ./rendicion-cuentas
+      dockerfile: DockerFile
+    container_name: mock_rendicion_cuentas
+    restart: unless-stopped
+    environment:
+      PORT: 7777
+    ports:
+      - "7777:7777"
+
