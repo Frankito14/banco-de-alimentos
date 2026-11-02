@@ -1,7 +1,7 @@
-import type { Entrega } from '../domain/entities.js';
-import { RecursoNoEncontradoError } from '../domain/errors/domain-error.js';
-import { EntregaYaConfirmadaError } from '../domain/errors/entrega.errors.js';
-import type { EntregaRepository, PublicadorDeEntregas } from './ports.js';
+import type { Entrega } from '../domain/entities';
+import { RecursoNoEncontradoError } from '../domain/errors/domain-error';
+import { EntregaYaConfirmadaError } from '../domain/errors/entrega.errors';
+import type { EntregaRepository, PublicadorDeEntregas } from './ports';
 
 export class ConfirmarEntrega {
   constructor(

@@ -1,7 +1,7 @@
 // src/padron-provincial/infrastructure/sincronizar-padron.cron.ts
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { SincronizarPadronUseCase } from '../sincronizar-padron.use-case';
+import { SincronizarPadronUseCase } from '../application/sincronizar-padron.use-case';
 
 @Injectable()
 export class SincronizarPadronCron implements OnApplicationBootstrap {

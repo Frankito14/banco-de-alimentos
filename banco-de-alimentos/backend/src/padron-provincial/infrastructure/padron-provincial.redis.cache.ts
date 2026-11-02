@@ -1,5 +1,5 @@
-// src/padron-provincial/infrastructure/padron-redis.cache.ts
-import { Inject, Injectable } from '@nestjs/common';
+// src/padron-provincial/infrastructure/padron-provincial.redis.cache.ts
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 import { REDIS_CLIENT } from '../../common/redis/redis.module';
 import { PadronSnapshot } from '../domain/comedor-habilitado';
@@ -12,14 +12,25 @@ const TTL_SEGUNDOS = 24 * 60 * 60;
 
 @Injectable()
 export class PadronRedisCache implements PadronCachePort {
+    private readonly logger = new Logger(PadronRedisCache.name);
+
     constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) { }
 
     async guardar(snapshot: PadronSnapshot): Promise<void> {
-        await this.redis.set(KEY, JSON.stringify(snapshot), 'EX', TTL_SEGUNDOS);
+        try {
+            await this.redis.set(KEY, JSON.stringify(snapshot), 'EX', TTL_SEGUNDOS);
+        } catch (err) {
+            this.logger.warn(`No se pudo persistir padrón en Redis: ${(err as Error).message}`);
+        }
     }
 
     async obtener(): Promise<PadronSnapshot | null> {
-        const raw = await this.redis.get(KEY);
-        return raw ? (JSON.parse(raw) as PadronSnapshot) : null;
+        try {
+            const raw = await this.redis.get(KEY);
+            return raw ? (JSON.parse(raw) as PadronSnapshot) : null;
+        } catch (err) {
+            this.logger.warn(`No se pudo leer padrón de Redis: ${(err as Error).message}`);
+            return null;
+        }
     }
 }

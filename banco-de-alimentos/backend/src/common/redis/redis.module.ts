@@ -13,8 +13,13 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
             inject: [ConfigService],
             useFactory: (config: ConfigService) => {
                 const logger = new Logger('Redis');
-                const client = new Redis(config.getOrThrow<string>('REDIS_URL'));
-                client.on('error', (err) => logger.error(err.message));
+                const url = config.get<string>('REDIS_URL') || 'redis://localhost:6379';
+                const client = new Redis(url, {
+                    lazyConnect: true,
+                    maxRetriesPerRequest: 1,
+                    retryStrategy: () => null,
+                });
+                client.on('error', (err) => logger.warn(`Redis client warning: ${err.message}`));
                 return client;
             },
         },

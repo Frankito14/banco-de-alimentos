@@ -7,16 +7,16 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   /**
-   * Endpoint de autenticación OIDC según contrato OpenAPI
+   * Endpoint de autenticación OIDC según contrato OpenAPI (/api/v1/auth/login)
    */
-  @Post('api/v1/auth/login')
+  @Post('auth/login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginRequestDto): Promise<LoginResponseDto> {
     return this.authService.login(loginDto);
   }
 
   /**
-   * Metadata estándar OpenID Connect Discovery 1.0
+   * Metadata estándar OpenID Connect Discovery 1.0 (/.well-known/openid-configuration)
    */
   @Get('.well-known/openid-configuration')
   getOpenIdConfiguration() {

@@ -4,7 +4,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { OidcJwtPayload } from '../auth/interfaces/oidc-payload.interface';
 import { UsuarioPerfilResponseDto } from '../auth/dto/login.dto';
 
-@Controller('api/v1/usuarios')
+@Controller('usuarios')
 export class UsersController {
   @Get('me')
   @UseGuards(JwtAuthGuard)

@@ -7,16 +7,16 @@ import {
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { ROLES_KEY } from './decorators.js';
-import type { Rol, UsuarioAutenticado } from './usuario-autenticado.js';
-import { VERIFICADOR_DE_TOKEN } from './verificador-de-token.js';
-import type { VerificadorDeToken } from './verificador-de-token.js';
+import { ROLES_KEY } from './decorators';
+import type { Rol, UsuarioAutenticado } from './usuario-autenticado';
+import { VERIFICADOR_DE_TOKEN } from './verificador-de-token';
+import type { VerificadorDeToken } from './verificador-de-token';
 
 export interface RequestConUsuario extends Request {
   usuario: UsuarioAutenticado;
 }
 
-// Se aplica a todos los endpoints: 401 si no esta logueado, 403 si su rol no puede
+// Se aplica a los endpoints con AuthGuard: 401 si no está logueado, 403 si su rol no puede
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(

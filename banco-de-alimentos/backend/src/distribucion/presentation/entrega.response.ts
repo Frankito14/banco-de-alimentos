@@ -1,4 +1,4 @@
-import type { Entrega } from '../domain/entities.js';
+import type { Entrega } from '../domain/entities';
 
 // Arma la respuesta con la forma de EntregaResponse del openapi
 export function aEntregaResponse(entrega: Entrega) {

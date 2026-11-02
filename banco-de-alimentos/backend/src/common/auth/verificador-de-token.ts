@@ -1,6 +1,5 @@
-import type { UsuarioAutenticado } from './usuario-autenticado.js';
+import type { UsuarioAutenticado } from './usuario-autenticado';
 
-// valida el token del Firebase y devuelve el usuario
 export interface VerificadorDeToken {
   verificar(token: string): Promise<UsuarioAutenticado | null>;
 }

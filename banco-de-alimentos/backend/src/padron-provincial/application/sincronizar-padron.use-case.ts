@@ -3,7 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
     PADRON_CACHE_PORT,
     PadronCachePort,
-} from '../domain/ports/padron-cache.port';
+} from '../domain/ports/padron-provincial.cache.port';
 import {
     PADRON_PROVINCIAL_PORT,
     PadronProvincialPort,

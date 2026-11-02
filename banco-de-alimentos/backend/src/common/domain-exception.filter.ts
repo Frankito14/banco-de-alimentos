@@ -5,7 +5,7 @@ import {
   RecursoNoEncontradoError,
   ReglaDeNegocioError,
   ReferenciaInvalidaError,
-} from '../distribucion/domain/errors/domain-error.js';
+} from '../distribucion/domain/errors/domain-error';
 
 const BASE_TYPE = 'https://api.bancodealimentos.gob.ar/problemas/';
 
@@ -18,7 +18,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
     const { status, title } =
       error instanceof ReglaDeNegocioError
-        ? { status: 409, title: 'Conflicto con regla de negocio' } // FALTA AGREGAR EL 409 AL PATCH /entregas/{id}/recepcion EN EL CONTRATO !!!!!!!!!!
+        ? { status: 409, title: 'Conflicto con regla de negocio' }
         : error instanceof RecursoNoEncontradoError
           ? { status: 404, title: 'Recurso inexistente' }
           : { status: 400, title: 'Referencia inválida' };
@@ -35,5 +35,3 @@ export class DomainExceptionFilter implements ExceptionFilter {
       });
   }
 }
-
-

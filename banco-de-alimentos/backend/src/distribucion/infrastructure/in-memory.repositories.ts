@@ -1,11 +1,11 @@
-import type { Comedor, Deposito, Entrega, Lote } from '../domain/entities.js';
+import type { Comedor, Deposito, Entrega, Lote } from '../domain/entities';
 import type {
   ComedorRepository,
   DepositoRepository,
   EntregaRepository,
   LoteRepository,
   PublicadorDeEntregas,
-} from '../application/ports.js';
+} from '../application/ports';
 
 export const DEPOSITO_1 = 'd3b07384-d113-40e4-a123-167162354a01';
 export const COMEDOR_HABILITADO = 'c8e12345-e89b-42d3-a456-426614174000';
@@ -53,7 +53,7 @@ export class InMemoryEntregaRepository implements EntregaRepository {
   }
 }
 
-// Para que ande sin rabbit (SACAR DESPUES) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Para que funcione standalone / sin broker externo
 export class InMemoryPublicadorDeEntregas implements PublicadorDeEntregas {
   async publicar(_entrega: Entrega) {}
 }

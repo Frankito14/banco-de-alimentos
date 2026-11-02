@@ -1,22 +1,28 @@
-import { ReglaDeNegocioError } from './domain-error.js';
+import { ReglaDeNegocioError } from './domain-error';
 
 export class ComedorNoHabilitadoError extends ReglaDeNegocioError {
-  readonly code = 'comedor-no-habilitado';
   constructor(comedorId: string) {
-    super(`El comedor ${comedorId} no está habilitado en el padrón provincial`);
+    super(
+      `El comedor ${comedorId} no se encuentra habilitado para recibir entregas.`,
+      'comedor-no-habilitado',
+    );
   }
 }
 
 export class StockInsuficienteError extends ReglaDeNegocioError {
-  readonly code = 'stock-insuficiente';
-  constructor(loteId: string, disponible: number, pedido: number) {
-    super(`El lote ${loteId} tiene ${disponible} disponibles y se pidieron ${pedido}`);
+  constructor(loteId: string, disponible: number, solicitado: number) {
+    super(
+      `Stock insuficiente para el lote ${loteId}: disponible ${disponible}, solicitado ${solicitado}.`,
+      'stock-insuficiente',
+    );
   }
 }
 
 export class EntregaYaConfirmadaError extends ReglaDeNegocioError {
-  readonly code = 'entrega-ya-confirmada';
   constructor(entregaId: string) {
-    super(`La entrega ${entregaId} ya fue confirmada`);
+    super(
+      `La entrega ${entregaId} ya fue confirmada previamente.`,
+      'entrega-ya-confirmada',
+    );
   }
 }

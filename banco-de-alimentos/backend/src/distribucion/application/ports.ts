@@ -1,4 +1,4 @@
-import type { Comedor, Deposito, Entrega, Lote } from '../domain/entities.js';
+import type { Comedor, Deposito, Entrega, Lote } from '../domain/entities';
 
 export interface DepositoRepository {
   findById(id: string): Promise<Deposito | null>;

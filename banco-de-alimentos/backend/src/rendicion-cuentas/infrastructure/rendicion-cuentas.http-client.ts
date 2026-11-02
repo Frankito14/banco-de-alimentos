@@ -24,7 +24,7 @@ export class RendicionCuentasHttpClient implements RendicionCuentasPort {
 
     for (let intento = 1; intento <= this.maxIntentos; intento++) {
       try {
-        const res = await fetch(`${this.baseUrl}/lotes`, {
+        const res = await fetch(`${this.baseUrl}/api/rendicion-cuentas`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -1,7 +1,6 @@
 import {
   ExecutionContext,
-  Injectable,
-  UnauthorizedException
+  Injectable
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ProblemDetailsException } from '../../common/exceptions/problem-details.exception';
@@ -9,6 +8,17 @@ import { ProblemDetailsException } from '../../common/exceptions/problem-details
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   canActivate(context: ExecutionContext) {
+    if (process.env.AUTH_FAKE === 'true') {
+      const request = context.switchToHttp().getRequest();
+      request.user = request.user || {
+        id: 'u-voluntario-1',
+        sub: 'u-voluntario-1',
+        email: 'voluntario@bancodealimentos.gob.ar',
+        nombre: 'Vol Untario',
+        rol: 'Voluntario',
+      };
+      return true;
+    }
     return super.canActivate(context);
   }
 

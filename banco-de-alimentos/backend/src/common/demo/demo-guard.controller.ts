@@ -5,7 +5,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { OidcJwtPayload } from '../../auth/interfaces/oidc-payload.interface';
 
-@Controller('api/v1/demo')
+@Controller('demo')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DemoGuardController {
   @Get('solo-voluntarios')

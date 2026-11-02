@@ -1,18 +1,39 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DemoGuardController } from './common/demo/demo-guard.controller';
 import { MessagingModule } from './common/messaging/messaging.module';
+import { RedisModule } from './common/redis/redis.module';
+import { PadronProvincialModule } from './padron-provincial/padron-provincial.module';
+import { RendicionCuentasModule } from './rendicion-cuentas/rendicion-cuentas.module';
 
-import { InventarioModule } from './inventario/inventario.module.js';
-import { DistribucionModule } from './distribucion/distribucion.module.js';
-import { ComedoresModule } from './comedores/comedores.module.js';
-import { AuditoriaModule } from './auditoria/auditoria.module.js';
+import { InventarioModule } from './inventario/inventario.module';
+import { DistribucionModule } from './distribucion/distribucion.module';
+import { ComedoresModule } from './comedores/comedores.module';
+import { AuditoriaModule } from './auditoria/auditoria.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, InventarioModule, DistribucionModule, ComedoresModule, AuditoriaModule, MessagingModule],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '../.env'],
+    }),
+    ScheduleModule.forRoot(),
+    AuthModule,
+    UsersModule,
+    MessagingModule,
+    RedisModule,
+    PadronProvincialModule,
+    RendicionCuentasModule,
+    InventarioModule,
+    DistribucionModule,
+    ComedoresModule,
+    AuditoriaModule,
+  ],
   controllers: [DemoGuardController],
-  providers: []
+  providers: [],
 })
 export class AppModule {}
-

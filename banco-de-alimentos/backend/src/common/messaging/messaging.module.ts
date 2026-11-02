@@ -14,7 +14,7 @@ export const ENTREGA_REGISTRADA_ROUTING_KEY = 'entrega.registrada';
             imports: [ConfigModule],
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({
-                uri: config.getOrThrow<string>('RABBITMQ_URL'),
+                uri: config.get<string>('RABBITMQ_URL') || 'amqp://localhost:5672',
                 exchanges: [
                     {
                         name: ENTREGAS_EXCHANGE,
@@ -30,7 +30,8 @@ export const ENTREGA_REGISTRADA_ROUTING_KEY = 'entrega.registrada';
                         options: { durable: true },
                     },
                 ],
-                connectionInitOptions: { wait: true, timeout: 10000 },
+                connectionInitOptions: { wait: false, timeout: 5000 },
+                enableControllerDiscovery: true,
             }),
         }),
     ],

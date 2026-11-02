@@ -16,6 +16,6 @@ import { SincronizarPadronCron } from './infrastructure/sicronizar-padron.cron';
         { provide: PADRON_PROVINCIAL_PORT, useClass: PadronProvincialHttpClient },
         { provide: PADRON_CACHE_PORT, useClass: PadronRedisCache },
     ],
-    exports: [ConsultarComedoresHabilitadosUseCase], // lo único que ven los demás módulos
+    exports: [ConsultarComedoresHabilitadosUseCase],
 })
 export class PadronProvincialModule { }

@@ -1,6 +1,5 @@
-// src/auditoria/application/enviar-lote-nocturno.service.ts
+// src/rendicion-cuentas/rendicion-cuentas.service.ts
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Channel, GetMessage } from 'amqplib';
 import { randomUUID } from 'crypto';
@@ -17,11 +16,14 @@ export class RendicionCuentasService {
     private readonly rendicion: RendicionCuentasPort,
   ) { }
 
-  @Cron('0 2 * * *', { timeZone: 'America/Argentina/Buenos_Aires' })
   async enviar_entregas_nocturno() {
-    const channel = this.amqp.channel as unknown as Channel;
-    const mensajes: GetMessage[] = [];
+    const channel = this.amqp?.channel as unknown as Channel;
+    if (!channel) {
+      this.logger.warn('Canal de RabbitMQ no disponible para envío nocturno');
+      return;
+    }
 
+    const mensajes: GetMessage[] = [];
 
     // 1. Leer todo lo acumulado SIN confirmar
     while (true) {
@@ -31,7 +33,7 @@ export class RendicionCuentasService {
     }
 
     if (mensajes.length === 0) {
-      this.logger.log('No hay entregas para enviar');
+      this.logger.log('No hay entregas para enviar al ministerio');
       return;
     }
 

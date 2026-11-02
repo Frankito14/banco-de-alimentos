@@ -1,16 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import type { Entrega, ItemEntrega, Lote } from '../domain/entities.js';
-import { ReferenciaInvalidaError } from '../domain/errors/domain-error.js';
+import type { Entrega, ItemEntrega, Lote } from '../domain/entities';
+import { ReferenciaInvalidaError } from '../domain/errors/domain-error';
 import {
   ComedorNoHabilitadoError,
   StockInsuficienteError,
-} from '../domain/errors/entrega.errors.js';
+} from '../domain/errors/entrega.errors';
 import type {
   ComedorRepository,
   DepositoRepository,
   EntregaRepository,
   LoteRepository,
-} from './ports.js';
+} from './ports';
 
 export interface RegistrarEntregaInput {
   depositoId: string;

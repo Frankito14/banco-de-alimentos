@@ -8,7 +8,7 @@ import { PadronSnapshot } from '../domain/comedor-habilitado';
 import {
     PADRON_CACHE_PORT,
     PadronCachePort,
-} from '../domain/ports/padron-cache.port';
+} from '../domain/ports/padron-provincial.cache.port';
 import { SincronizarPadronUseCase } from './sincronizar-padron.use-case';
 
 @Injectable()
