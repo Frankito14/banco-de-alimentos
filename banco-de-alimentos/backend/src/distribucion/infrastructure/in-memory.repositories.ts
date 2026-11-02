@@ -4,6 +4,7 @@ import type {
   DepositoRepository,
   EntregaRepository,
   LoteRepository,
+  PublicadorDeEntregas,
 } from '../application/ports.js';
 
 export const DEPOSITO_1 = 'd3b07384-d113-40e4-a123-167162354a01';
@@ -44,7 +45,15 @@ export class InMemoryLoteRepository implements LoteRepository {
 
 export class InMemoryEntregaRepository implements EntregaRepository {
   private readonly datos = new Map<string, Entrega>();
+  async findById(id: string) {
+    return this.datos.get(id) ?? null;
+  }
   async save(entrega: Entrega) {
     this.datos.set(entrega.id, entrega);
   }
+}
+
+// Para que ande sin rabbit (SACAR DESPUES) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+export class InMemoryPublicadorDeEntregas implements PublicadorDeEntregas {
+  async publicar(_entrega: Entrega) {}
 }

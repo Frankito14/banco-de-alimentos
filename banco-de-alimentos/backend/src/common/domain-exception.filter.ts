@@ -18,7 +18,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
     const { status, title } =
       error instanceof ReglaDeNegocioError
-        ? { status: 409, title: 'Conflicto con regla de negocio' }
+        ? { status: 409, title: 'Conflicto con regla de negocio' } // FALTA AGREGAR EL 409 AL PATCH /entregas/{id}/recepcion EN EL CONTRATO !!!!!!!!!!
         : error instanceof RecursoNoEncontradoError
           ? { status: 404, title: 'Recurso inexistente' }
           : { status: 400, title: 'Referencia inválida' };
