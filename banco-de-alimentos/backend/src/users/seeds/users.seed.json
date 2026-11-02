@@ -1,0 +1,25 @@
+[
+  {
+    "id": "u-voluntario-1",
+    "nombre": "Vol Untario",
+    "email": "voluntario@bancodealimentos.gob.ar",
+    "passwordHash": "$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2",
+    "rol": "Voluntario",
+    "depositoAsignadoId": "dep-hurlingham"
+  },
+  {
+    "id": "u-referente-1",
+    "nombre": "Refe Rente",
+    "email": "referente@comedor-sol.gob.ar",
+    "passwordHash": "$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2",
+    "rol": "ReferenteComedor",
+    "comedorAsignadoId": "com-el-sol"
+  },
+  {
+    "id": "u-coordinador-1",
+    "nombre": "Cor Dinador",
+    "email": "coordinador@ministerio.gob.ar",
+    "passwordHash": "$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2",
+    "rol": "Coordinador"
+  }
+]
