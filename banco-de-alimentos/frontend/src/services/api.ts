@@ -18,9 +18,10 @@ import {
 } from './mockData';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-const USE_MOCK = true; // Permite operar standalone hasta que el backend esté listo
+// Dejamos de usar mocks para operar contra la base de datos real en PostgreSQL y microservicios
+const USE_MOCK = false;
 
-// Persistencia local para el Mock Store
+// Persistencia local para el Mock Store (fallback)
 const STORAGE_KEYS = {
   LOTES: 'banco_alimentos_lotes',
   ENTREGAS: 'banco_alimentos_entregas'
@@ -52,7 +53,7 @@ function saveEntregas(entregas: Entrega[]) {
   localStorage.setItem(STORAGE_KEYS.ENTREGAS, JSON.stringify(entregas));
 }
 
-// Helper para emular latencia de red (100ms - 300ms)
+// Helper para emular latencia de red en modo mock
 const sleep = (ms = 200) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class ApiError extends Error {
@@ -69,6 +70,17 @@ export const api = {
    * POST /api/v1/auth/login
    */
   async login(email: string, _password: string, demoRole?: Rol): Promise<LoginResponse> {
+    if (demoRole === 'Voluntario') {
+      email = 'voluntario@bancodealimentos.gob.ar';
+      _password = 'PasswordSegura123!';
+    } else if (demoRole === 'ReferenteComedor') {
+      email = 'referente@comedor-sol.gob.ar';
+      _password = 'PasswordSegura123!';
+    } else if (demoRole === 'Coordinador') {
+      email = 'coordinador@ministerio.gob.ar';
+      _password = 'PasswordSegura123!';
+    }
+
     if (USE_MOCK) {
       await sleep();
       let usuario = MOCK_USUARIOS.find((u) => u.email.toLowerCase() === email.toLowerCase());
@@ -119,6 +131,9 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/v1/depositos`, {
       headers: getAuthHeaders()
     });
+    if (!res.ok) {
+      throw new ApiError(await res.json().catch(() => ({})));
+    }
     return res.json();
   },
 
@@ -134,11 +149,14 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/v1/depositos/${depositoId}/stock`, {
       headers: getAuthHeaders()
     });
+    if (!res.ok) {
+      throw new ApiError(await res.json().catch(() => ({})));
+    }
     return res.json();
   },
 
   /**
-   * GET /api/v1/comedores (ACL Padrón Provincial)
+   * GET /api/v1/comedores (Sistema externo Padrón Provincial + PostgreSQL)
    */
   async getComedores(): Promise<Comedor[]> {
     if (USE_MOCK) {
@@ -148,12 +166,14 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/v1/comedores`, {
       headers: getAuthHeaders()
     });
+    if (!res.ok) {
+      throw new ApiError(await res.json().catch(() => ({})));
+    }
     return res.json();
   },
 
   /**
    * POST /api/v1/entregas (Caso de uso mínimo: Voluntario)
-   * Valida stock disponible y comedor habilitado
    */
   async registrarEntrega(params: {
     depositoId: string;
@@ -255,13 +275,21 @@ export const api = {
       return nuevaEntrega;
     }
 
+    const payload = {
+      depositoId: params.depositoId,
+      comedorId: params.comedorId,
+      lotes: params.items.map((i) => ({ loteId: i.loteId, cantidad: i.cantidad })),
+      items: params.items.map((i) => ({ loteId: i.loteId, cantidad: i.cantidad })),
+      observaciones: params.observaciones,
+    };
+
     const res = await fetch(`${BASE_URL}/api/v1/entregas`, {
       method: 'POST',
       headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
+      body: JSON.stringify(payload)
     });
     if (!res.ok) {
-      throw new ApiError(await res.json());
+      throw new ApiError(await res.json().catch(() => ({})));
     }
     return res.json();
   },
@@ -281,9 +309,18 @@ export const api = {
       }
       return list;
     }
-    const res = await fetch(`${BASE_URL}/api/v1/entregas`, {
+
+    const query = new URLSearchParams();
+    if (filtro?.comedorId) query.append('comedorId', filtro.comedorId);
+    if (filtro?.depositoId) query.append('depositoId', filtro.depositoId);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+
+    const res = await fetch(`${BASE_URL}/api/v1/entregas${qs}`, {
       headers: getAuthHeaders()
     });
+    if (!res.ok) {
+      throw new ApiError(await res.json().catch(() => ({})));
+    }
     return res.json();
   },
 
@@ -335,7 +372,7 @@ export const api = {
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
-      throw new ApiError(await res.json());
+      throw new ApiError(await res.json().catch(() => ({})));
     }
     return res.json();
   },

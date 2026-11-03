@@ -16,24 +16,30 @@ import type {
 import { ConfirmarEntrega } from './application/confirmar-entrega.use-case';
 import { RegistrarEntrega } from './application/registrar-entrega.use-case';
 import {
-  InMemoryDepositoRepository,
-  InMemoryEntregaRepository,
-  InMemoryLoteRepository,
-} from './infrastructure/in-memory.repositories';
+  PostgresDepositoRepository,
+  PostgresEntregaRepository,
+  PostgresLoteRepository,
+} from './infrastructure/postgres.repositories';
 import { PadronComedorRepository } from './infrastructure/padron.comedor.repository';
 import { RabbitMqPublicadorDeEntregas } from './infrastructure/rabbitmq.publicador';
 import { EntregasController } from './presentation/entregas.controller';
+import { DepositosController } from './presentation/depositos.controller';
 import { PadronProvincialModule } from '../padron-provincial/padron-provincial.module';
 
 @Module({
   imports: [PadronProvincialModule],
-  controllers: [EntregasController],
+  controllers: [EntregasController, DepositosController],
   providers: [
-    { provide: DEPOSITO_REPOSITORY, useClass: InMemoryDepositoRepository },
-    { provide: COMEDOR_REPOSITORY, useClass: PadronComedorRepository },
-    { provide: LOTE_REPOSITORY, useClass: InMemoryLoteRepository },
-    { provide: ENTREGA_REPOSITORY, useClass: InMemoryEntregaRepository },
-    { provide: PUBLICADOR_DE_ENTREGAS, useClass: RabbitMqPublicadorDeEntregas },
+    PostgresDepositoRepository,
+    PostgresLoteRepository,
+    PostgresEntregaRepository,
+    PadronComedorRepository,
+    RabbitMqPublicadorDeEntregas,
+    { provide: DEPOSITO_REPOSITORY, useExisting: PostgresDepositoRepository },
+    { provide: COMEDOR_REPOSITORY, useExisting: PadronComedorRepository },
+    { provide: LOTE_REPOSITORY, useExisting: PostgresLoteRepository },
+    { provide: ENTREGA_REPOSITORY, useExisting: PostgresEntregaRepository },
+    { provide: PUBLICADOR_DE_ENTREGAS, useExisting: RabbitMqPublicadorDeEntregas },
     {
       provide: RegistrarEntrega,
       useFactory: (
@@ -58,6 +64,9 @@ import { PadronProvincialModule } from '../padron-provincial/padron-provincial.m
     PUBLICADOR_DE_ENTREGAS,
     RegistrarEntrega,
     ConfirmarEntrega,
+    PostgresDepositoRepository,
+    PostgresLoteRepository,
+    PostgresEntregaRepository,
   ],
 })
 export class DistribucionModule {}

@@ -23,9 +23,14 @@ export const InicioPage: React.FC = () => {
   useEffect(() => {
     async function loadData() {
       try {
+        const filtro =
+          usuario?.rol === 'ReferenteComedor' && usuario.comedorAsignadoId
+            ? { comedorId: usuario.comedorAsignadoId }
+            : undefined;
+
         const [allEntregas, allLotes] = await Promise.all([
-          api.getEntregas(),
-          api.getStock('dep-hurlingham')
+          api.getEntregas(filtro),
+          api.getStock(usuario?.depositoAsignadoId || 'dep-hurlingham')
         ]);
         setEntregas(allEntregas);
         setLotes(allLotes);
@@ -36,7 +41,7 @@ export const InicioPage: React.FC = () => {
       }
     }
     loadData();
-  }, []);
+  }, [usuario]);
 
   if (!usuario) return null;
 
@@ -65,7 +70,9 @@ export const InicioPage: React.FC = () => {
                 {usuario.rol === 'Voluntario'
                   ? 'Depósito Regional N° 1 (Hurlingham)'
                   : usuario.rol === 'ReferenteComedor'
-                  ? 'Comedor Rayito de Sol (Padrón #102)'
+                  ? usuario.comedorAsignadoId === '9'
+                    ? 'Comedor Los Ceibos (Padrón #9)'
+                    : 'Comedor Rayito de Sol'
                   : 'Sede Central Ministerio'}
               </p>
             </div>

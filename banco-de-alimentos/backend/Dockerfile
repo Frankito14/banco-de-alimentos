@@ -7,6 +7,7 @@ COPY package*.json .npmrc ./
 RUN npm install
 
 COPY . .
+RUN rm -rf tsconfig*.tsbuildinfo dist
 RUN npm run build
 
 # Production Stage

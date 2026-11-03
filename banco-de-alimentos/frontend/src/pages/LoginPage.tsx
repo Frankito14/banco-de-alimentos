@@ -147,6 +147,29 @@ export const LoginPage: React.FC = () => {
 
               <button
                 type="button"
+                onClick={async () => {
+                  setProblem(null);
+                  setIsLoading(true);
+                  try {
+                    await login('referente@losceibos.gob.ar', 'PasswordSegura123!');
+                    navigate('/inicio');
+                  } catch (err) {
+                    if (err instanceof ApiError) setProblem(err.problem);
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                className="w-full text-left px-3 py-2 border border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50/50 transition flex items-center justify-between group"
+              >
+                <div>
+                  <p className="text-xs font-bold text-slate-800">Pedro Morales (Referente)</p>
+                  <p className="text-[11px] text-slate-500">Comedor Los Ceibos (#9) · Confirma recepción física</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition" />
+              </button>
+
+              <button
+                type="button"
                 onClick={() => handleQuickDemoLogin('Coordinador')}
                 className="w-full text-left px-3 py-2 border border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50/50 transition flex items-center justify-between group"
               >

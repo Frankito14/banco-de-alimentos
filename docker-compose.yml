@@ -1,0 +1,172 @@
+services:
+  # Sistemas Externos (Mocks)
+  padron-provincial:
+    build:
+      context: ./sistemas-externos/padron-provincial
+      dockerfile: DockerFile
+    container_name: mock_padron_provincial
+    restart: unless-stopped
+    environment:
+      PORT: 6767
+    ports:
+      - "6767:6767"
+    networks:
+      - app-network
+
+  rendicion-cuentas:
+    build:
+      context: ./sistemas-externos/rendicion-cuentas
+      dockerfile: DockerFile
+    container_name: mock_rendicion_cuentas
+    restart: unless-stopped
+    environment:
+      PORT: 7777
+    ports:
+      - "7777:7777"
+    networks:
+      - app-network
+
+  # Base de Datos PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: tp_banco_alimentos_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-banco_alimentos_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./banco-de-alimentos/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-banco_alimentos_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # Cache Redis
+  redis:
+    image: redis:7-alpine
+    container_name: tp_banco_alimentos_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # Cola de Mensajería RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: tp_banco_alimentos_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-banco}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-cambiar}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - app-network
+
+  # Backend NestJS
+  backend:
+    build:
+      context: ./banco-de-alimentos/backend
+      dockerfile: Dockerfile
+    container_name: tp_banco_alimentos_backend
+    restart: unless-stopped
+    env_file:
+      - ./banco-de-alimentos/.env
+    environment:
+      DB_HOST: db
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-banco_alimentos_db}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:-c3f7b2e1a90d45f8e6c1a89b74d20e53a1b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-3600s}
+      OIDC_ISSUER: ${OIDC_ISSUER:-https://oidc.bancodealimentos.gob.ar}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-banco-de-alimentos-api}
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-banco}:${RABBITMQ_PASS:-cambiar}@rabbitmq:5672
+      PADRON_PROVINCIAL_URL: http://padron-provincial:6767
+      RENDICION_CUENTAS_URL: http://rendicion-cuentas:7777
+      AUTH_FAKE: ${AUTH_FAKE:-true}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${PORT_BACKEND:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      padron-provincial:
+        condition: service_started
+      rendicion-cuentas:
+        condition: service_started
+    networks:
+      - app-network
+
+  # Frontend React SPA
+  frontend:
+    build:
+      context: ./banco-de-alimentos/frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:${PORT_BACKEND:-3000}
+    container_name: tp_banco_alimentos_frontend
+    restart: unless-stopped
+    ports:
+      - "${PORT_FRONTEND:-5173}:80"
+    environment:
+      VITE_API_URL: http://localhost:${PORT_BACKEND:-3000}
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # Swagger UI Documentation
+  swagger-ui:
+    image: swaggerapi/swagger-ui:v5.11.0
+    container_name: tp_banco_alimentos_swagger
+    restart: unless-stopped
+    ports:
+      - "${PORT_SWAGGER:-8080}:8080"
+    environment:
+      SWAGGER_JSON: /spec/openapi.yaml
+    volumes:
+      - ./banco-de-alimentos/backend/open-api.yaml:/spec/openapi.yaml:ro
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redis_data:
+  rabbitmq_data:

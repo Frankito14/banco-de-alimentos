@@ -5,16 +5,16 @@ services:
     container_name: tp_banco_alimentos_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-banco_alimentos_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
-      - "${DB_PORT}:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-banco_alimentos_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -47,8 +47,8 @@ services:
       - "5672:5672"     # AMQP
       - "15672:15672"   # panel de administración
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-banco}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-cambiar}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -69,21 +69,24 @@ services:
     restart: unless-stopped
     environment:
       DB_HOST: db
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-banco_alimentos_db}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
       PORT: 3000
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
-      OIDC_ISSUER: ${OIDC_ISSUER}
-      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      JWT_SECRET: ${JWT_SECRET:-c3f7b2e1a90d45f8e6c1a89b74d20e53a1b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-3600s}
+      OIDC_ISSUER: ${OIDC_ISSUER:-https://oidc.bancodealimentos.gob.ar}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-banco-de-alimentos-api}
       REDIS_URL: redis://redis:6379
-      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
-      PADRON_PROVINCIAL_URL: http://host.docker.internal:6767
-      RENDICION_CUENTAS_URL: http://host.docker.internal:7777
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-banco}:${RABBITMQ_PASS:-cambiar}@rabbitmq:5672
+      PADRON_PROVINCIAL_URL: ${PADRON_PROVINCIAL_URL:-http://host.docker.internal:6767}
+      RENDICION_CUENTAS_URL: ${RENDICION_CUENTAS_URL:-http://host.docker.internal:7777}
+      AUTH_FAKE: ${AUTH_FAKE:-true}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
-      - "${PORT_BACKEND}:3000"
+      - "${PORT_BACKEND:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy
@@ -99,12 +102,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:${PORT_BACKEND:-3000}
     container_name: tp_banco_alimentos_frontend
     restart: unless-stopped
     ports:
-      - "${PORT_FRONTEND}:80"
+      - "${PORT_FRONTEND:-5173}:80"
     environment:
-      VITE_API_URL: http://localhost:${PORT_BACKEND}
+      VITE_API_URL: http://localhost:${PORT_BACKEND:-3000}
     depends_on:
       - backend
     networks:
@@ -116,7 +121,7 @@ services:
     container_name: tp_banco_alimentos_swagger
     restart: unless-stopped
     ports:
-      - "${PORT_SWAGGER}:8080"
+      - "${PORT_SWAGGER:-8080}:8080"
     environment:
       SWAGGER_JSON: /spec/openapi.yaml
     volumes:

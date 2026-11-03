@@ -1,7 +1,13 @@
+import { IsNotEmpty, IsString } from 'class-validator';
 import { Rol } from '../interfaces/oidc-payload.interface';
 
 export class LoginRequestDto {
+  @IsString()
+  @IsNotEmpty()
   usuario: string; // Email
+
+  @IsString()
+  @IsNotEmpty()
   password: string;
 }
 

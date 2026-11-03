@@ -6,9 +6,9 @@ import {
   HttpCode,
   NotFoundException,
   Param,
-  ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -23,9 +23,7 @@ import { RegistrarEntrega } from '../application/registrar-entrega.use-case';
 import { RecepcionEntregaDto } from './dto/recepcion-entrega.dto';
 import { RegistrarEntregaDto } from './dto/registrar-entrega.dto';
 import { aEntregaResponse } from './entrega.response';
-import { ENTREGA_REPOSITORY } from '../application/ports';
-import type { EntregaRepository } from '../application/ports';
-import { Inject } from '@nestjs/common';
+import { PostgresEntregaRepository } from '../infrastructure/postgres.repositories';
 
 @Controller('entregas')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -33,8 +31,7 @@ export class EntregasController {
   constructor(
     private readonly registrarEntrega: RegistrarEntrega,
     private readonly confirmarEntrega: ConfirmarEntrega,
-    @Inject(ENTREGA_REPOSITORY)
-    private readonly entregaRepository: EntregaRepository,
+    private readonly entregaRepository: PostgresEntregaRepository,
   ) {}
 
   @Post()
@@ -42,49 +39,85 @@ export class EntregasController {
   @Roles('Voluntario')
   async registrar(
     @Body() dto: RegistrarEntregaDto,
-    @CurrentUser() usuario: OidcJwtPayload & { id?: string },
+    @CurrentUser() usuario: OidcJwtPayload & { id?: string; nombre?: string },
     @Res({ passthrough: true }) res: Response,
   ) {
-    const userId = usuario?.id || usuario?.sub || 'usr-voluntario-1';
-    const entrega = await this.registrarEntrega.ejecutar({ ...dto, creadoPor: userId });
+    const lotes = dto.lotes || dto.items || [];
+    if (!lotes || lotes.length === 0) {
+      throw new BadRequestException('Debe incluir al menos un lote para la entrega');
+    }
+    const userId = usuario?.nombre || usuario?.id || usuario?.sub || 'usr-voluntario-1';
+    const entrega = await this.registrarEntrega.ejecutar({
+      depositoId: dto.depositoId,
+      comedorId: dto.comedorId,
+      lotes,
+      creadoPor: userId,
+    });
     res.setHeader('Location', `/api/v1/entregas/${entrega.id}`);
     return aEntregaResponse(entrega);
+  }
+
+  @Get()
+  @Roles('Voluntario', 'ReferenteComedor', 'Coordinador')
+  async listarEntregas(
+    @CurrentUser() user: OidcJwtPayload,
+    @Query('comedorId') comedorId?: string,
+    @Query('depositoId') depositoId?: string,
+  ) {
+    let filtroComedor = comedorId;
+
+    // Regla de Aislamiento y Seguridad (RBAC / Tenancy):
+    // Un Referente de Comedor solo puede visualizar los pedidos dirigidos a su propio comedor.
+    if (user.rol === 'ReferenteComedor') {
+      filtroComedor = user.comedorAsignadoId || 'SIN_COMEDOR_ASIGNADO';
+    }
+
+    return this.entregaRepository.findAll({ comedorId: filtroComedor, depositoId });
   }
 
   @Get(':entregaId')
   @Roles('Voluntario', 'ReferenteComedor', 'Coordinador')
   async obtenerDetalle(
-    @Param(
-      'entregaId',
-      new ParseUUIDPipe({
-        exceptionFactory: () =>
-          new BadRequestException('El parámetro entregaId debe ser un UUID válido.'),
-      }),
-    )
-    entregaId: string,
+    @CurrentUser() user: OidcJwtPayload,
+    @Param('entregaId') entregaId: string,
   ) {
     const entrega = await this.entregaRepository.findById(entregaId);
     if (!entrega) {
       throw new NotFoundException(`No se encontró la entrega con ID ${entregaId}`);
     }
+
+    if (
+      user.rol === 'ReferenteComedor' &&
+      user.comedorAsignadoId &&
+      entrega.comedorId !== user.comedorAsignadoId
+    ) {
+      throw new BadRequestException('No tiene permisos para consultar entregas pertenecientes a otro comedor.');
+    }
+
     return aEntregaResponse(entrega);
   }
 
-  // Falta definir que pasa con { "recepcionConforme": false } (por ahora entrega igualmente)
   @Patch(':entregaId/recepcion')
   @HttpCode(200)
-  @Roles('ReferenteComedor')
+  @Roles('ReferenteComedor', 'Coordinador')
   async confirmar(
-    @Param(
-      'entregaId',
-      new ParseUUIDPipe({
-        exceptionFactory: () =>
-          new BadRequestException('El parámetro entregaId debe ser un UUID válido.'),
-      }),
-    )
-    entregaId: string,
-    @Body() _dto: RecepcionEntregaDto,
+    @CurrentUser() user: OidcJwtPayload,
+    @Param('entregaId') entregaId: string,
+    @Body() dto: RecepcionEntregaDto,
   ) {
+    const entregaExistente = await this.entregaRepository.findById(entregaId);
+    if (!entregaExistente) {
+      throw new NotFoundException(`No se encontró la entrega con ID ${entregaId}`);
+    }
+
+    if (
+      user.rol === 'ReferenteComedor' &&
+      user.comedorAsignadoId &&
+      entregaExistente.comedorId !== user.comedorAsignadoId
+    ) {
+      throw new BadRequestException('No puede confirmar la recepción de un pedido asignado a otro comedor.');
+    }
+
     const entrega = await this.confirmarEntrega.ejecutar(entregaId);
     return aEntregaResponse(entrega);
   }

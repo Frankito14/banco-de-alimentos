@@ -1,17 +1,17 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
-  ArrayUnique,
   IsArray,
   IsInt,
-  IsUUID,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
   Min,
   ValidateNested,
 } from 'class-validator';
 
-
 export class LoteEntregaDto {
-  @IsUUID('all', { message: 'debe ser un UUID válido' })
+  @IsString()
+  @IsNotEmpty({ message: 'loteId es requerido' })
   loteId: string;
 
   @IsInt({ message: 'debe ser un número entero' })
@@ -20,16 +20,27 @@ export class LoteEntregaDto {
 }
 
 export class RegistrarEntregaDto {
-  @IsUUID('all', { message: 'debe ser un UUID válido' })
+  @IsString()
+  @IsNotEmpty({ message: 'depositoId es requerido' })
   depositoId: string;
 
-  @IsUUID('all', { message: 'debe ser un UUID válido' })
+  @IsString()
+  @IsNotEmpty({ message: 'comedorId es requerido' })
   comedorId: string;
 
-  @IsArray({ message: 'debe ser una lista' })
-  @ArrayMinSize(1, { message: 'debe tener al menos un lote' })
-  @ArrayUnique((lote: LoteEntregaDto) => lote.loteId, { message: 'no puede tener lotes repetidos' })
+  @IsOptional()
+  @IsString()
+  observaciones?: string;
+
+  @IsOptional()
+  @IsArray({ message: 'lotes debe ser una lista' })
   @ValidateNested({ each: true, message: 'debe contener objetos con loteId y cantidad' })
   @Type(() => LoteEntregaDto)
-  lotes: LoteEntregaDto[];
+  lotes?: LoteEntregaDto[];
+
+  @IsOptional()
+  @IsArray({ message: 'items debe ser una lista' })
+  @ValidateNested({ each: true, message: 'debe contener objetos con loteId y cantidad' })
+  @Type(() => LoteEntregaDto)
+  items?: LoteEntregaDto[];
 }

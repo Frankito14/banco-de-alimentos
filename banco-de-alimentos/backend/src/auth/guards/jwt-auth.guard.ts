@@ -8,8 +8,15 @@ import { ProblemDetailsException } from '../../common/exceptions/problem-details
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   canActivate(context: ExecutionContext) {
+    const request = context.switchToHttp().getRequest();
+    const authHeader = request.headers['authorization'] || request.headers['Authorization'];
+
+    // Si viene un token Bearer, validarlo con el Passport JWT Strategy real
+    if (authHeader && typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')) {
+      return super.canActivate(context);
+    }
+
     if (process.env.AUTH_FAKE === 'true') {
-      const request = context.switchToHttp().getRequest();
       request.user = request.user || {
         id: 'u-voluntario-1',
         sub: 'u-voluntario-1',

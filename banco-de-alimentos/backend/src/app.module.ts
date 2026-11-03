@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 
+import { DatabaseModule } from './common/database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DemoGuardController } from './common/demo/demo-guard.controller';
@@ -22,6 +23,7 @@ import { AuditoriaModule } from './auditoria/auditoria.module';
       envFilePath: ['.env', '../.env'],
     }),
     ScheduleModule.forRoot(),
+    DatabaseModule,
     AuthModule,
     UsersModule,
     MessagingModule,
