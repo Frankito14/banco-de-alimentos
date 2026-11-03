@@ -1,8 +1,9 @@
 // Errores de negocio que se traducen a 409 Conflict
 export abstract class ReglaDeNegocioError extends Error {
-  abstract readonly code: string;
-
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly code: string,
+  ) {
     super(message);
     this.name = new.target.name;
   }

@@ -16,22 +16,24 @@ import type {
 import { ConfirmarEntrega } from './application/confirmar-entrega.use-case';
 import { RegistrarEntrega } from './application/registrar-entrega.use-case';
 import {
-  InMemoryComedorRepository,
   InMemoryDepositoRepository,
   InMemoryEntregaRepository,
   InMemoryLoteRepository,
-  InMemoryPublicadorDeEntregas,
 } from './infrastructure/in-memory.repositories';
+import { PadronComedorRepository } from './infrastructure/padron.comedor.repository';
+import { RabbitMqPublicadorDeEntregas } from './infrastructure/rabbitmq.publicador';
 import { EntregasController } from './presentation/entregas.controller';
+import { PadronProvincialModule } from '../padron-provincial/padron-provincial.module';
 
 @Module({
+  imports: [PadronProvincialModule],
   controllers: [EntregasController],
   providers: [
     { provide: DEPOSITO_REPOSITORY, useClass: InMemoryDepositoRepository },
-    { provide: COMEDOR_REPOSITORY, useClass: InMemoryComedorRepository },
+    { provide: COMEDOR_REPOSITORY, useClass: PadronComedorRepository },
     { provide: LOTE_REPOSITORY, useClass: InMemoryLoteRepository },
     { provide: ENTREGA_REPOSITORY, useClass: InMemoryEntregaRepository },
-    { provide: PUBLICADOR_DE_ENTREGAS, useClass: InMemoryPublicadorDeEntregas },
+    { provide: PUBLICADOR_DE_ENTREGAS, useClass: RabbitMqPublicadorDeEntregas },
     {
       provide: RegistrarEntrega,
       useFactory: (
