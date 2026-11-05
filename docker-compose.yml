@@ -65,7 +65,7 @@ services:
     networks:
       - app-network
 
-  # Cola de Mensajería RabbitMQ
+  # Cola de Mensajeria RabbitMQ
   rabbitmq:
     image: rabbitmq:3-management
     container_name: tp_banco_alimentos_rabbitmq
@@ -87,6 +87,25 @@ services:
     networks:
       - app-network
 
+  # Proveedor de Identidad OIDC (Keycloak)
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    container_name: tp_banco_alimentos_keycloak
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HTTP_PORT: 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./banco-de-alimentos/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    networks:
+      - app-network
+
   # Backend NestJS
   backend:
     build:
@@ -105,13 +124,16 @@ services:
       PORT: 3000
       JWT_SECRET: ${JWT_SECRET:-c3f7b2e1a90d45f8e6c1a89b74d20e53a1b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-3600s}
-      OIDC_ISSUER: ${OIDC_ISSUER:-https://oidc.bancodealimentos.gob.ar}
-      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-banco-de-alimentos-api}
+      OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:8080/realms/banco-de-alimentos}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-banco-alimentos-client}
+      KEYCLOAK_URL: http://localhost:8080
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_REALM: banco-de-alimentos
+      KEYCLOAK_CLIENT_ID: banco-alimentos-client
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-banco}:${RABBITMQ_PASS:-cambiar}@rabbitmq:5672
       PADRON_PROVINCIAL_URL: http://padron-provincial:6767
       RENDICION_CUENTAS_URL: http://rendicion-cuentas:7777
-      AUTH_FAKE: ${AUTH_FAKE:-true}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -123,6 +145,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      keycloak:
+        condition: service_started
       padron-provincial:
         condition: service_started
       rendicion-cuentas:
@@ -137,12 +161,18 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: http://localhost:${PORT_BACKEND:-3000}
+        VITE_KEYCLOAK_URL: http://localhost:8080
+        VITE_KEYCLOAK_REALM: banco-de-alimentos
+        VITE_KEYCLOAK_CLIENT_ID: banco-alimentos-client
     container_name: tp_banco_alimentos_frontend
     restart: unless-stopped
     ports:
       - "${PORT_FRONTEND:-5173}:80"
     environment:
       VITE_API_URL: http://localhost:${PORT_BACKEND:-3000}
+      VITE_KEYCLOAK_URL: http://localhost:8080
+      VITE_KEYCLOAK_REALM: banco-de-alimentos
+      VITE_KEYCLOAK_CLIENT_ID: banco-alimentos-client
     depends_on:
       - backend
     networks:
@@ -154,7 +184,7 @@ services:
     container_name: tp_banco_alimentos_swagger
     restart: unless-stopped
     ports:
-      - "${PORT_SWAGGER:-8080}:8080"
+      - "${PORT_SWAGGER:-8082}:8080"
     environment:
       SWAGGER_JSON: /spec/openapi.yaml
     volumes:

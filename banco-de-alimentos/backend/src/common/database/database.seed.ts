@@ -1,8 +1,13 @@
 // src/common/database/database.seed.ts
+// NOTA ARQUITECTÓNICA: La autenticación e identidad está 100% delegada en Keycloak.
+// No existen tablas de usuarios ni credenciales locales en PostgreSQL.
 
 export const INITIAL_SCHEMA_AND_SEED = `
 -- Habilitar extensión para UUIDs en PostgreSQL
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Eliminar tabla obsoleta de usuarios si existía previamente (arquitectura OIDC delegada)
+DROP TABLE IF EXISTS usuarios CASCADE;
 
 -- 1. Tabla Donadores
 CREATE TABLE IF NOT EXISTS donadores (
@@ -35,26 +40,14 @@ CREATE TABLE IF NOT EXISTS comedores (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Tabla Usuarios del Sistema
-CREATE TABLE IF NOT EXISTS usuarios (
-    id VARCHAR(50) PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(200) NOT NULL,
-    rol VARCHAR(50) NOT NULL,
-    deposito_asignado_id VARCHAR(50),
-    comedor_asignado_id VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 5. Tabla Ingresos de Alimentos
+-- 4. Tabla Ingresos de Alimentos
 CREATE TABLE IF NOT EXISTS ingresos (
     id VARCHAR(50) PRIMARY KEY,
     id_donador VARCHAR(50) REFERENCES donadores(id),
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Tabla Lotes (Stock por alimento en depósito)
+-- 5. Tabla Lotes (Stock por alimento en depósito)
 CREATE TABLE IF NOT EXISTS lotes (
     id VARCHAR(50) PRIMARY KEY,
     id_ingreso VARCHAR(50) REFERENCES ingresos(id),
@@ -69,7 +62,7 @@ CREATE TABLE IF NOT EXISTS lotes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Tabla Entregas (Despacho / Pedido al comedor)
+-- 6. Tabla Entregas (Despacho / Pedido al comedor)
 CREATE TABLE IF NOT EXISTS entregas (
     id VARCHAR(50) PRIMARY KEY,
     id_deposito VARCHAR(50) NOT NULL REFERENCES depositos(id),
@@ -83,7 +76,7 @@ CREATE TABLE IF NOT EXISTS entregas (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8. Tabla Intermedia LotesEntregados (Relación N:M para Trazabilidad)
+-- 7. Tabla Intermedia LotesEntregados (Relación N:M para Trazabilidad)
 CREATE TABLE IF NOT EXISTS lotes_entregados (
     id VARCHAR(50) PRIMARY KEY,
     id_entrega VARCHAR(50) NOT NULL REFERENCES entregas(id) ON DELETE CASCADE,
@@ -143,13 +136,6 @@ ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre,
   direccion = EXCLUDED.direccion,
   habilitado = EXCLUDED.habilitado;
-
-INSERT INTO usuarios (id, nombre, email, password_hash, rol, deposito_asignado_id, comedor_asignado_id) VALUES 
-('u-voluntario-1', 'Vol Untario', 'voluntario@bancodealimentos.gob.ar', '$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2', 'Voluntario', 'dep-hurlingham', NULL),
-('u-referente-1', 'Refe Rente', 'referente@comedor-sol.gob.ar', '$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2', 'ReferenteComedor', NULL, 'com-el-sol'),
-('u-referente-ceibos', 'Pedro Morales (Los Ceibos)', 'referente@losceibos.gob.ar', '$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2', 'ReferenteComedor', NULL, '9'),
-('u-coordinador-1', 'Cor Dinador', 'coordinador@ministerio.gob.ar', '$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2', 'Coordinador', NULL, NULL)
-ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO entregas (id, id_deposito, id_comedor, estado, fecha_entrega, fecha_recepcion, horario_recepcion, observaciones, created_by) VALUES 
 ('ent-000', 'dep-hurlingham', 'com-esperanza', 'ENTREGADO', '2026-10-25 10:00:00', '2026-10-25', '16:45', 'Entregado con acta de conformidad firmada', 'Vol Untario'),

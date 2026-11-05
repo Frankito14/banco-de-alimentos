@@ -1,9 +1,10 @@
--- Habilitar extensión para UUIDs en PostgreSQL
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- init.sql
+-- Base de Datos: PostgreSQL 16
+-- Dominio: Banco de Alimentos Provincial
+-- NOTA ARQUITECTÓNICA: La autenticación e identidad está 100% delegada en el IdP OIDC (Keycloak).
+-- Por ende, no existen tablas de usuarios ni hashes de credenciales en esta base de datos.
 
--- ===================================================
--- ESTRUCTURA DE BASE DE DATOS: BANCO DE ALIMENTOS
--- ===================================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. Tabla Donadores
 CREATE TABLE IF NOT EXISTS donadores (
@@ -36,26 +37,14 @@ CREATE TABLE IF NOT EXISTS comedores (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Tabla Usuarios del Sistema
-CREATE TABLE IF NOT EXISTS usuarios (
-    id VARCHAR(50) PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(200) NOT NULL,
-    rol VARCHAR(50) NOT NULL,
-    deposito_asignado_id VARCHAR(50),
-    comedor_asignado_id VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 5. Tabla Ingresos de Alimentos
+-- 4. Tabla Ingresos de Alimentos
 CREATE TABLE IF NOT EXISTS ingresos (
     id VARCHAR(50) PRIMARY KEY,
     id_donador VARCHAR(50) REFERENCES donadores(id),
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Tabla Lotes (Stock por alimento en depósito)
+-- 5. Tabla Lotes (Stock por alimento en depósito)
 CREATE TABLE IF NOT EXISTS lotes (
     id VARCHAR(50) PRIMARY KEY,
     id_ingreso VARCHAR(50) REFERENCES ingresos(id),
@@ -70,7 +59,7 @@ CREATE TABLE IF NOT EXISTS lotes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Tabla Entregas (Despacho / Pedido al comedor)
+-- 6. Tabla Entregas (Despacho / Pedido al comedor)
 CREATE TABLE IF NOT EXISTS entregas (
     id VARCHAR(50) PRIMARY KEY,
     id_deposito VARCHAR(50) NOT NULL REFERENCES depositos(id),
@@ -84,7 +73,7 @@ CREATE TABLE IF NOT EXISTS entregas (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8. Tabla Intermedia LotesEntregados (Relación N:M para Trazabilidad)
+-- 7. Tabla Intermedia LotesEntregados (Relación N:M para Trazabilidad)
 CREATE TABLE IF NOT EXISTS lotes_entregados (
     id VARCHAR(50) PRIMARY KEY,
     id_entrega VARCHAR(50) NOT NULL REFERENCES entregas(id) ON DELETE CASCADE,
@@ -93,18 +82,13 @@ CREATE TABLE IF NOT EXISTS lotes_entregados (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ===================================================
--- SEEDS / DATOS INICIALES DEL BANCO DE ALIMENTOS
--- ===================================================
-
--- Depósitos
+-- Seeds
 INSERT INTO depositos (id, nombre, direccion, localidad, capacidad_total) VALUES 
 ('dep-hurlingham', 'Depósito Regional N° 1 - Hurlingham', 'Av. Vergara 2222', 'Hurlingham', 15000),
 ('dep-moron', 'Depósito Regional N° 2 - Morón', 'Rivadavia 14200', 'Morón', 12000),
 ('d3b07384-d113-40e4-a123-167162354a01', 'Depósito Central Provincial', 'Calle 12 N° 550', 'La Plata', 25000)
 ON CONFLICT (id) DO NOTHING;
 
--- Donadores
 INSERT INTO donadores (id, nombre, direccion) VALUES 
 ('11111111-1111-1111-1111-111111111111', 'Supermercado Coto', 'Av. Vergara 1234, Morón'),
 ('don-serenisima', 'Lácteos La Serenísima', 'Ruta 5 Km 75, Gral. Rodríguez'),
@@ -112,14 +96,12 @@ INSERT INTO donadores (id, nombre, direccion) VALUES
 ('don-arcor', 'Grupo Arcor', 'Av. Rivadavia 200, Morón')
 ON CONFLICT (id) DO NOTHING;
 
--- Ingresos
 INSERT INTO ingresos (id, id_donador) VALUES 
 ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111'),
 ('ing-001', 'don-serenisima'),
 ('ing-002', 'don-molinos')
 ON CONFLICT (id) DO NOTHING;
 
--- Lotes con Stock
 INSERT INTO lotes (id, id_ingreso, id_deposito, codigo_lote, alimento_nombre, unidad_medida, cantidad_inicial, stock, fecha_vencimiento, donante_origen) VALUES 
 ('a1b2c3d4-e5f6-4890-b234-567890abcdef', '22222222-2222-2222-2222-222222222222', 'd3b07384-d113-40e4-a123-167162354a01', 'LOT-2026-0915', 'Leche Larga Vida 1L', 'litros', 100, 100, '2030-12-31', 'Supermercado Coto'),
 ('lote-1', 'ing-001', 'dep-hurlingham', 'LP-2026-901', 'Leche en Polvo Entera 1kg', 'cajas', 250, 250, '2027-04-15', 'Lácteos La Serenísima'),
@@ -129,9 +111,8 @@ INSERT INTO lotes (id, id_ingreso, id_deposito, codigo_lote, alimento_nombre, un
 ('lote-5', 'ing-002', 'dep-hurlingham', 'LT-2026-009', 'Lentejas Secas Seleccionadas 500g', 'paquetes', 180, 180, '2027-09-05', 'Legumbres del Plata'),
 ('lote-6', 'ing-001', 'dep-moron', 'LE-2026-110', 'Leche Entera Tetra 1L', 'litros', 500, 500, '2027-06-20', 'Lácteos La Serenísima'),
 ('lote-7', 'ing-002', 'dep-moron', 'HR-2026-044', 'Harina de Trigo 000 1kg', 'paquetes', 350, 350, '2027-05-18', 'Molinos Río de la Plata')
-ON CONFLICT (id) DO UPDATE SET stock = EXCLUDED.stock;
+ON CONFLICT (id) DO NOTHING;
 
--- Comedores iniciales (compatibles con Padrón Provincial)
 INSERT INTO comedores (id, nombre, responsable, partido, direccion, telefono, capacidad_personas, habilitado) VALUES 
 ('1', 'Comedor Los Pibes', 'Marta Gómez', 'Morón', 'Av. Rivadavia 18450, Moron', '11-4455-6677', 150, true),
 ('2', 'Comedor Esperanza', 'Jorge López', 'La Plata', 'Calle 12 N 1450, La Plata', '221-5544-332', 120, true),
@@ -153,21 +134,11 @@ ON CONFLICT (id) DO UPDATE SET
   direccion = EXCLUDED.direccion,
   habilitado = EXCLUDED.habilitado;
 
--- Usuarios del Sistema (Contraseña para todos: PasswordSegura123!)
-INSERT INTO usuarios (id, nombre, email, password_hash, rol, deposito_asignado_id, comedor_asignado_id) VALUES 
-('u-voluntario-1', 'Vol Untario', 'voluntario@bancodealimentos.gob.ar', '$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2', 'Voluntario', 'dep-hurlingham', NULL),
-('u-referente-1', 'Refe Rente', 'referente@comedor-sol.gob.ar', '$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2', 'ReferenteComedor', NULL, 'com-el-sol'),
-('u-referente-ceibos', 'Pedro Morales (Los Ceibos)', 'referente@losceibos.gob.ar', '$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2', 'ReferenteComedor', NULL, '9'),
-('u-coordinador-1', 'Cor Dinador', 'coordinador@ministerio.gob.ar', '$2b$10$TXUoXWKCH6WDtFnBNEuYq.gYevxeOthFyH9BJYKgMGzC/QQgM4ry2', 'Coordinador', NULL, NULL)
-ON CONFLICT (id) DO NOTHING;
-
--- Entregas iniciales de prueba
 INSERT INTO entregas (id, id_deposito, id_comedor, estado, fecha_entrega, fecha_recepcion, horario_recepcion, observaciones, created_by) VALUES 
 ('ent-000', 'dep-hurlingham', 'com-esperanza', 'ENTREGADO', '2026-10-25 10:00:00', '2026-10-25', '16:45', 'Entregado con acta de conformidad firmada', 'Vol Untario'),
 ('ent-001', 'dep-hurlingham', 'com-el-sol', 'PENDIENTE', '2026-10-26 14:30:00', NULL, NULL, 'Despacho matutino en camioneta provincial #4', 'Vol Untario')
 ON CONFLICT (id) DO NOTHING;
 
--- Detalle de Lotes de las entregas iniciales
 INSERT INTO lotes_entregados (id, id_entrega, id_lote, cantidad) VALUES 
 ('le-001', 'ent-000', 'lote-3', 40),
 ('le-002', 'ent-001', 'lote-1', 30),

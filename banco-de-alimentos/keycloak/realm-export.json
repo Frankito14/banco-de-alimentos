@@ -1,0 +1,238 @@
+{
+  "id": "banco-de-alimentos",
+  "realm": "banco-de-alimentos",
+  "displayName": "Banco de Alimentos - Sistema OIDC",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "roles": {
+    "realm": [
+      {
+        "id": "role-voluntario",
+        "name": "Voluntario",
+        "description": "Voluntario de Depósito Regional",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "id": "role-referente",
+        "name": "ReferenteComedor",
+        "description": "Referente de Comedor Comunitario",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "id": "role-coordinador",
+        "name": "Coordinador",
+        "description": "Coordinador Provincial / Auditor",
+        "composite": false,
+        "clientRole": false
+      }
+    ]
+  },
+  "clients": [
+    {
+      "id": "banco-alimentos-client-id",
+      "clientId": "banco-alimentos-client",
+      "name": "Banco de Alimentos Client",
+      "rootUrl": "http://localhost:5173",
+      "baseUrl": "/",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "publicClient": true,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "3600",
+        "post.logout.redirect.uris": "*"
+      },
+      "protocolMappers": [
+        {
+          "id": "mapper-deposito",
+          "name": "depositoAsignadoId",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "depositoAsignadoId",
+            "claim.name": "depositoAsignadoId",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "id": "mapper-comedor",
+          "name": "comedorAsignadoId",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "comedorAsignadoId",
+            "claim.name": "comedorAsignadoId",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "id": "mapper-rol",
+          "name": "rol",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "rol",
+            "claim.name": "rol",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "id": "mapper-roles-list",
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "u-voluntario-1",
+      "username": "voluntario@bancodealimentos.gob.ar",
+      "email": "voluntario@bancodealimentos.gob.ar",
+      "firstName": "Vol",
+      "lastName": "Untario",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "PasswordSegura123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Voluntario"
+      ],
+      "attributes": {
+        "depositoAsignadoId": [
+          "dep-hurlingham"
+        ],
+        "rol": [
+          "Voluntario"
+        ]
+      }
+    },
+    {
+      "id": "u-referente-1",
+      "username": "referente@comedor-sol.gob.ar",
+      "email": "referente@comedor-sol.gob.ar",
+      "firstName": "Refe",
+      "lastName": "Rente",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "PasswordSegura123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ReferenteComedor"
+      ],
+      "attributes": {
+        "comedorAsignadoId": [
+          "com-el-sol"
+        ],
+        "rol": [
+          "ReferenteComedor"
+        ]
+      }
+    },
+    {
+      "id": "u-referente-ceibos",
+      "username": "referente@losceibos.gob.ar",
+      "email": "referente@losceibos.gob.ar",
+      "firstName": "Pedro",
+      "lastName": "Morales",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "PasswordSegura123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ReferenteComedor"
+      ],
+      "attributes": {
+        "comedorAsignadoId": [
+          "9"
+        ],
+        "rol": [
+          "ReferenteComedor"
+        ]
+      }
+    },
+    {
+      "id": "u-coordinador-1",
+      "username": "coordinador@ministerio.gob.ar",
+      "email": "coordinador@ministerio.gob.ar",
+      "firstName": "Cor",
+      "lastName": "Dinador",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "PasswordSegura123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Coordinador"
+      ],
+      "attributes": {
+        "rol": [
+          "Coordinador"
+        ]
+      }
+    }
+  ]
+}

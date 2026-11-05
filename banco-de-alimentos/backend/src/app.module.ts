@@ -4,7 +4,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 
 import { DatabaseModule } from './common/database/database.module';
 import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
 import { DemoGuardController } from './common/demo/demo-guard.controller';
 import { MessagingModule } from './common/messaging/messaging.module';
 import { RedisModule } from './common/redis/redis.module';
@@ -25,7 +24,6 @@ import { AuditoriaModule } from './auditoria/auditoria.module';
     ScheduleModule.forRoot(),
     DatabaseModule,
     AuthModule,
-    UsersModule,
     MessagingModule,
     RedisModule,
     PadronProvincialModule,
