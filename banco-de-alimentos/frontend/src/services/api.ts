@@ -26,11 +26,20 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function handleUnauthorized(res: Response) {
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
+  }
+}
+
 export const api = {
   /**
    * POST /api/v1/auth/login
    * Autenticación delegada contra Keycloak a través del backend API.
-   * Sin datos mockeados ni fallbacks: si Keycloak o el backend fallan, la petición falla.
    */
   async login(email: string, password: string, demoRole?: Rol): Promise<LoginResponse> {
     if (demoRole === 'Voluntario') {
@@ -51,6 +60,7 @@ export const api = {
     });
 
     if (!res.ok) {
+      handleUnauthorized(res);
       const errorJson = await res.json().catch(() => ({}));
       throw new ApiError(errorJson as ProblemDetails);
     }
@@ -65,6 +75,7 @@ export const api = {
       headers: getAuthHeaders()
     });
     if (!res.ok) {
+      handleUnauthorized(res);
       throw new ApiError(await res.json().catch(() => ({})));
     }
     return res.json();
@@ -78,6 +89,7 @@ export const api = {
       headers: getAuthHeaders()
     });
     if (!res.ok) {
+      handleUnauthorized(res);
       throw new ApiError(await res.json().catch(() => ({})));
     }
     return res.json();
@@ -91,6 +103,7 @@ export const api = {
       headers: getAuthHeaders()
     });
     if (!res.ok) {
+      handleUnauthorized(res);
       throw new ApiError(await res.json().catch(() => ({})));
     }
     return res.json();
@@ -120,6 +133,7 @@ export const api = {
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
+      handleUnauthorized(res);
       throw new ApiError(await res.json().catch(() => ({})));
     }
     return res.json();
@@ -138,6 +152,7 @@ export const api = {
       headers: getAuthHeaders()
     });
     if (!res.ok) {
+      handleUnauthorized(res);
       throw new ApiError(await res.json().catch(() => ({})));
     }
     return res.json();
@@ -156,6 +171,59 @@ export const api = {
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
+      handleUnauthorized(res);
+      throw new ApiError(await res.json().catch(() => ({})));
+    }
+    return res.json();
+  },
+
+  /**
+   * GET /api/v1/auditoria/reportes/entregas/csv (Exportar reporte para Tribunal de Cuentas)
+   */
+  async descargarReporteCsv(): Promise<void> {
+    const res = await fetch(`${BASE_URL}/api/v1/auditoria/reportes/entregas/csv`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      handleUnauthorized(res);
+      throw new ApiError(await res.json().catch(() => ({})));
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte_entregas_tribunal_cuentas_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  /**
+   * GET /api/v1/auditoria/lotes
+   */
+  async getLotesAuditoria(): Promise<any[]> {
+    const res = await fetch(`${BASE_URL}/api/v1/auditoria/lotes`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      handleUnauthorized(res);
+      throw new ApiError(await res.json().catch(() => ({})));
+    }
+    return res.json();
+  },
+
+  /**
+   * GET /api/v1/auditoria/lotes/{loteId}/trazabilidad
+   * Reconstrucción histórica inmutable exigida por el Tribunal de Cuentas
+   */
+  async reconstruirEstadoLote(loteId: string, fecha?: string): Promise<any> {
+    const qs = fecha ? `?fecha=${encodeURIComponent(fecha)}` : '';
+    const res = await fetch(`${BASE_URL}/api/v1/auditoria/lotes/${loteId}/trazabilidad${qs}`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      handleUnauthorized(res);
       throw new ApiError(await res.json().catch(() => ({})));
     }
     return res.json();

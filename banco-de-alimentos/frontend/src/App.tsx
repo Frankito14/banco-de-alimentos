@@ -17,7 +17,7 @@ export const App: React.FC = () => {
           <Navbar />
           <main className="flex-1">
             <Routes>
-              {/* Ruta Pública */}
+              {/* Ruta Pública: Pantalla inicial de login */}
               <Route path="/login" element={<LoginPage />} />
 
               {/* Rutas Protegidas */}
@@ -60,9 +60,9 @@ export const App: React.FC = () => {
                 }
               />
 
-              {/* Redirección por defecto */}
-              <Route path="/" element={<Navigate to="/inicio" replace />} />
-              <Route path="*" element={<Navigate to="/inicio" replace />} />
+              {/* Redirección por defecto: Inicia siempre en /login */}
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </main>
         </div>

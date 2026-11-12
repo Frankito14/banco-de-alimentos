@@ -15,7 +15,7 @@ import {
 import { api } from '../../services/api';
 
 export const Navbar: React.FC = () => {
-  const { usuario, logout, switchDemoRole } = useAuth();
+  const { usuario, logout } = useAuth();
   const location = useLocation();
 
   if (!usuario) return null;

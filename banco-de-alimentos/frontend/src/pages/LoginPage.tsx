@@ -7,8 +7,14 @@ import { ApiError } from '../services/api';
 import { ShieldCheck, ArrowRight, UserCheck, KeyRound, Building2 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/inicio', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const [email, setEmail] = useState('voluntario@bancodealimentos.gob.ar');
   const [password, setPassword] = useState('PasswordSegura123!');
