@@ -1,3 +1,5 @@
+process.env.TZ = 'America/Argentina/Buenos_Aires';
+
 import * as dotenv from 'dotenv';
 dotenv.config({ path: ['.env', '../.env'] });
 

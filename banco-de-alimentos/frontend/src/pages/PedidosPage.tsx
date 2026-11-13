@@ -169,7 +169,12 @@ export const PedidosPage: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1">
                     <Calendar className="w-4 h-4 text-slate-400" />
-                    <span>{new Date(entrega.fechaCreacion).toLocaleDateString()}</span>
+                    <span>
+                      {new Intl.DateTimeFormat('es-AR', {
+                        timeZone: 'America/Argentina/Buenos_Aires',
+                        dateStyle: 'short',
+                      }).format(new Date(entrega.fechaCreacion))}
+                    </span>
                   </div>
                 </div>
               </div>

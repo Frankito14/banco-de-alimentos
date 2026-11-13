@@ -35,6 +35,8 @@ services:
       POSTGRES_DB: ${DB_NAME:-banco_alimentos_db}
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      TZ: America/Argentina/Buenos_Aires
+      PGTZ: America/Argentina/Buenos_Aires
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
@@ -99,6 +101,7 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
       KC_HTTP_PORT: 8080
+      TZ: America/Argentina/Buenos_Aires
     ports:
       - "8080:8080"
     volumes:
@@ -116,6 +119,7 @@ services:
     env_file:
       - ./banco-de-alimentos/.env
     environment:
+      TZ: America/Argentina/Buenos_Aires
       DB_HOST: db
       DB_PORT: ${DB_PORT:-5432}
       DB_NAME: ${DB_NAME:-banco_alimentos_db}
@@ -169,6 +173,7 @@ services:
     ports:
       - "${PORT_FRONTEND:-5173}:80"
     environment:
+      TZ: America/Argentina/Buenos_Aires
       VITE_API_URL: http://localhost:${PORT_BACKEND:-3000}
       VITE_KEYCLOAK_URL: http://localhost:8080
       VITE_KEYCLOAK_REALM: banco-de-alimentos

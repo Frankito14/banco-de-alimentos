@@ -56,9 +56,25 @@ export class AuditoriaController {
   async exportarReporteEntregasCsv(@Res() res: Response) {
     const entregas = await this.entregaRepository.findAll();
 
+    const formatFechaAr = (d: any) => {
+      if (!d) return '';
+      const dateObj = new Date(d);
+      if (isNaN(dateObj.getTime())) return String(d);
+      return new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }).format(dateObj);
+    };
+
     const header = [
       'ID Entrega',
-      'Fecha Despacho',
+      'Fecha Despacho (UTC-3)',
       'Depósito Origen',
       'Comedor Destino',
       'Estado',
@@ -67,20 +83,21 @@ export class AuditoriaController {
       'Cantidad',
       'Unidad Medida',
       'Registrado Por',
-      'Fecha Recepción',
-      'Horario Recepción',
+      'Fecha Recepción (UTC-3)',
+      'Horario Recepción (UTC-3)',
       'Observaciones',
     ].join(';');
 
     const filas: string[] = [header];
 
     for (const e of entregas) {
+      const fechaDespachoStr = formatFechaAr(e.fechaCreacion);
       if (e.items && e.items.length > 0) {
         for (const item of e.items) {
           filas.push(
             [
               `"${e.id}"`,
-              `"${e.fechaCreacion || ''}"`,
+              `"${fechaDespachoStr}"`,
               `"${e.depositoNombre || e.depositoId}"`,
               `"${e.comedorNombre || e.comedorId}"`,
               `"${e.estado}"`,
@@ -99,7 +116,7 @@ export class AuditoriaController {
         filas.push(
           [
             `"${e.id}"`,
-            `"${e.fechaCreacion || ''}"`,
+            `"${fechaDespachoStr}"`,
             `"${e.depositoNombre || e.depositoId}"`,
             `"${e.comedorNombre || e.comedorId}"`,
             `"${e.estado}"`,
@@ -117,11 +134,14 @@ export class AuditoriaController {
     }
 
     const csvContent = '\uFEFF' + filas.join('\r\n'); // BOM UTF-8 para Excel en español
+    const fechaHoyAr = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+    }).format(new Date());
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="reporte_entregas_tribunal_cuentas_${new Date().toISOString().slice(0, 10)}.csv"`,
+      `attachment; filename="reporte_entregas_tribunal_cuentas_${fechaHoyAr}.csv"`,
     );
     res.status(200).send(csvContent);
   }

@@ -3,6 +3,9 @@
 // No existen tablas de usuarios ni credenciales locales en PostgreSQL.
 
 export const INITIAL_SCHEMA_AND_SEED = `
+-- Configurar huso horario oficial UTC-3 (Argentina)
+SET timezone = 'America/Argentina/Buenos_Aires';
+
 -- Habilitar extensión para UUIDs en PostgreSQL
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 

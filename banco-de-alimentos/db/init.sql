@@ -4,6 +4,9 @@
 -- NOTA ARQUITECTÓNICA: La autenticación e identidad está 100% delegada en el IdP OIDC (Keycloak).
 -- Por ende, no existen tablas de usuarios ni hashes de credenciales en esta base de datos.
 
+-- Configurar huso horario oficial UTC-3 (Argentina)
+SET timezone = 'America/Argentina/Buenos_Aires';
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. Tabla Donadores

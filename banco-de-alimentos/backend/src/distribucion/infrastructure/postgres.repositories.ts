@@ -215,14 +215,26 @@ export class PostgresEntregaRepository implements EntregaRepository {
         );
       }
     } else {
+      const fechaRecepcionDate = entrega.fechaRecepcion || new Date();
+      const horarioAr = new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(fechaRecepcionDate);
+
+      const fechaRecepcionStr = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+      }).format(fechaRecepcionDate);
+
       await this.db.query(
         `UPDATE entregas 
          SET estado = $1, fecha_recepcion = $2, horario_recepcion = $3
          WHERE id = $4`,
         [
           entrega.estado,
-          entrega.fechaRecepcion,
-          entrega.fechaRecepcion ? entrega.fechaRecepcion.toTimeString().split(' ')[0].substring(0, 5) : null,
+          fechaRecepcionStr,
+          horarioAr,
           entrega.id,
         ],
       );

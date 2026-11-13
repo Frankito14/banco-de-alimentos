@@ -251,7 +251,7 @@ export const InicioPage: React.FC = () => {
                     {e.estado}
                   </span>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {new Date(e.fechaCreacion).toLocaleDateString()}
+                    {new Intl.DateTimeFormat('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', dateStyle: 'short' }).format(new Date(e.fechaCreacion))}
                   </p>
                 </div>
               </div>

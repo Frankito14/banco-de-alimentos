@@ -28,11 +28,32 @@ export const EntregasPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isExporting, setIsExporting] = useState(false);
 
+  // Helper para formatear siempre en hora oficial de Argentina (UTC-3)
+  const formatDateTimeAr = (dateStr?: string | Date | null) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return new Intl.DateTimeFormat('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(d);
+  };
+
+  // Fecha de hoy en formato YYYY-MM-DD en UTC-3
+  const fechaHoyAr = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(new Date());
+
   // Estado para el Modal de Reconstrucción Histórica del Tribunal de Cuentas
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [lotesAuditables, setLotesAuditables] = useState<any[]>([]);
   const [selectedLoteId, setSelectedLoteId] = useState('');
-  const [fechaCorte, setFechaCorte] = useState(new Date().toISOString().slice(0, 10));
+  const [fechaCorte, setFechaCorte] = useState(fechaHoyAr);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditResult, setAuditResult] = useState<any | null>(null);
   const [auditError, setAuditError] = useState<string | null>(null);
@@ -239,7 +260,7 @@ export const EntregasPage: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{new Date(entrega.fechaCreacion).toLocaleString()}</span>
+                    <span>{formatDateTimeAr(entrega.fechaCreacion)} hs</span>
                   </div>
                 </div>
               </div>
@@ -384,7 +405,7 @@ export const EntregasPage: React.FC = () => {
                         {auditResult.tribunalDeCuentas.dictamen}
                       </span>
                       <p className="text-[10px] text-slate-400 mt-1">
-                        Corte al: {new Date(auditResult.tribunalDeCuentas.fechaCorteHistorica).toLocaleDateString()}
+                        Corte al: {formatDateTimeAr(auditResult.tribunalDeCuentas.fechaCorteHistorica)} hs
                       </p>
                     </div>
                   </div>
@@ -443,7 +464,7 @@ export const EntregasPage: React.FC = () => {
                               {mov.tipo === 'INGRESO_DONACION' ? 'Ingreso Donación' : 'Despacho a Comedor'}
                             </p>
                             <p className="text-[11px] text-slate-500">
-                              {mov.destinoUOrigen} · {new Date(mov.fecha).toLocaleString()}
+                              {mov.destinoUOrigen} · {formatDateTimeAr(mov.fecha)} hs
                             </p>
                           </div>
                         </div>
