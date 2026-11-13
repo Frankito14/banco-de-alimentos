@@ -1,66 +1,99 @@
 # Sistema Provincial Banco de Alimentos (Escenario 1B)
 
+Plataforma integral para la gestión de la red provincial de distribución de donaciones de alimentos, trazabilidad inmutable de lotes por fecha de vencimiento y rendición de cuentas ante el Tribunal de Cuentas y el Ministerio Provincial.
+
+---
+
 ## 📌 Descripción del Dominio
 
-El **Sistema Provincial Banco de Alimentos** es una plataforma destinada a gestionar la red provincial de distribución de donaciones de alimentos. El sistema coordina el flujo de alimentos desde su recepción en depósitos regionales hasta su entrega efectiva en comedores comunitarios debidamente habilitados, garantizando el control de stock por lotes, el seguimiento de fechas de vencimiento y la trazabilidad inmutable de cada alimento distribuidos.
+El sistema coordina el flujo de alimentos desde su recepción en depósitos regionales hasta su entrega física efectiva en comedores comunitarios debidamente habilitados, garantizando:
+* **Control estricto de stock por lote** y seguimiento de fechas de vencimiento.
+* **Acreditación de habilitación en el Padrón Provincial** antes de despachar.
+* **Trazabilidad inmutable y reconstrucción histórica temporal** exigida por el Tribunal de Cuentas.
+* **Rendición de cuentas nocturna en lotes** hacia el sistema central del Ministerio.
 
 ---
 
 ## 👥 Roles del Negocio
 
-* **Voluntario de Depósito:**  
-  * Registra el ingreso de partidas y donaciones de alimentos asignándoles un lote.
-  * Confecciona y registra las entregas de lotes dirigidas a los comedores comunitarios.
-* **Referente de Comedor:**  
-  * Revisa las entregas recibidas en la institución y registra la confirmación de recepción conforme de la mercadería.
-* **Coordinador del Ministerio:**  
-  * Supervisa el stock consolidado entre los depósitos regionales.
-  * Consulta el historial inmutable de movimientos y exporta reportes de trazabilidad para las auditorías.
+* **Voluntario de Depósito:**
+  * Consulta el stock disponible en su depósito asignado.
+  * Registra despachos y entregas de lotes hacia comedores comunitarios habilitados.
+* **Referente de Comedor:**
+  * Posee aislamiento territorial (*multi-tenant*): solo visualiza los despachos de su institución.
+  * Confirma la recepción física conforme de los alimentos recibidos.
+* **Coordinador del Ministerio:**
+  * Supervisa el stock consolidado entre los 15 depósitos regionales.
+  * Consulta el historial inmutable de movimientos.
+  * Ejecuta la **Reconstrucción Histórica de Lotes a cualquier fecha pasada** (Tribunal de Cuentas).
+  * **Exporta reportes oficiales en formato CSV**.
 
 ---
 
 ## 📦 Entidades y Conceptos del Dominio
 
-* **Depósito Regional:** Cada una de las 15 sedes físicas autorizadas para el almacenamiento y conservación de los alimentos.
-* **Lote:** Unidad fundamental de inventario. Contiene el tipo de alimento, cantidad de unidades, fecha de vencimiento, donante de origen y depósito asignado.
-* **Ingreso:** Registro de recepción inicial de donaciones o partidas de alimentos en un depósito.
-* **Entrega:** Operación mediante la cual se despachan unidades de uno o más lotes hacia un comedor comunitario.
-* **Comedor Comunitario:** Institución de asistencia alimentaria. Debe estar registrada y con estado habilitado en el Padrón Provincial para recibir mercadería.
-* **Historial de Movimiento:** Registro inmutable de cada hecho físico ocurrido sobre un lote (ingresos, entregas, ajustes).
+* **Depósito Regional:** Cada una de las sedes físicas autorizadas para almacenamiento y conservación.
+* **Lote:** Unidad fundamental de inventario (tipo de alimento, stock, fecha de vencimiento, donante y depósito).
+* **Ingreso:** Registro inmutable de donaciones o partidas recibidas en un depósito.
+* **Entrega:** Operación mediante la cual se despachan unidades de uno o más lotes hacia un comedor.
+* **Comedor Comunitario:** Institución de asistencia alimentaria registrada y habilitada en el Padrón Provincial.
+* **Lotes Entregados (Ledger Inmutable):** Registro histórico inalterable de cada movimiento físico sobre un lote.
 
 ---
 
 ## ⚖️ Reglas e Invariantes del Negocio
 
-1. **Habilitación de Comedores:** Únicamente se pueden autorizar y registrar entregas dirigidas a comedores que figuren como **habilitados** en el Padrón Provincial.
-2. **Disponibilidad de Stock:** No se puede registrar una entrega de alimentos si la cantidad solicitada supera el stock disponible en el lote seleccionado dentro del depósito.
-3. **Control de Vencimientos:** Queda prohibida la entrega o despacho de lotes cuya fecha de vencimiento haya expirado.
-4. **Inmutabilidad y Reconstruibilidad Histórica (Tribunal de Cuentas):**  
-  * Todo movimiento o cambio en el historial de un lote queda registrado de forma inmutable e inalterable.
-  * Ningún hecho o registro del pasado puede borrarse o modificarse.
-  * Las correcciones por errores de registro se realizan mediante **movimientos compensatorios** (ajustes de saldo) que preservan el historial completo.
+1. **Habilitación de Comedores:** Únicamente se pueden autorizar y registrar entregas dirigidas a comedores habilitados en el Padrón Provincial.
+2. **Disponibilidad de Stock:** No se puede despachar si la cantidad solicitada supera el stock disponible del lote.
+3. **Control de Vencimientos:** Queda prohibido despachar lotes vencidos.
+4. **Inmutabilidad y Reconstruibilidad Histórica (Tribunal de Cuentas):**
+   * Ningún registro de entrega o movimiento histórico puede borrarse ni modificarse.
+   * La fórmula inmutable calcula el saldo histórico a cualquier fecha de corte $T$:
+     $$\text{Saldo al Corte } T = \text{Ingreso Inicial} - \sum_{\text{fecha} \le T} \text{Entregas Realizadas}$$
+5. **Rendición Nocturna:** Toda entrega confirmada se encola y se despacha en lote al Ministerio a las 02:00 AM.
 
 ---
 
-## 🔑 Backend en modo desarrollo (sin Firebase)
+## 🏛️ Arquitectura del Sistema (C4 Contenedores)
 
-Mientras no esté conectado Firebase, el backend solo arranca en modo desarrollo, con la variable `AUTH_FAKE=true`. En ese modo acepta tokens fijos de usuarios de prueba en vez de validar contra Firebase.
+El sistema está diseñado 100% contenerizado bajo infraestructura del Estado provincial sin dependencias de SaaS externos:
 
-**Con npm** (desde `backend/`):
+```
+[Navegador / SPA (React + Vite)]
+          │ (HTTP / JWT)
+          ▼
+[Backend API (NestJS Core)]
+   ├── (OIDC Token / JWKS) ──> [Keycloak 24 (Proveedor de Identidad)]
+   ├── (SQL Relacional) ─────> [PostgreSQL 16 (Dominio, sin usuarios)]
+   ├── (ioredis / Cache) ────> [Redis 7 (Resiliencia del Padrón)]
+   ├── (AMQP Eventos) ───────> [RabbitMQ (Encolado de Rendiciones)]
+   │                               └── (Cron 02:00 AM) ──> [Mock Rendición (Prolog)]
+   └── (HTTP Client) ────────> [Mock Padrón Provincial (Haskell)]
+```
 
-| Terminal | Comando |
-|---|---|
-| PowerShell | `$env:AUTH_FAKE='true'; npm run start:dev` |
-| Bash | `AUTH_FAKE=true npm run start:dev` |
+---
 
-**Con Docker Compose:** `AUTH_FAKE=true docker compose up`, o agregar `AUTH_FAKE=true` al archivo `.env`.
+## 🚀 Despliegue con Docker Compose
 
-**Usuarios de prueba** (header `Authorization: Bearer <token>`):
+### Prerrequisitos
+* Docker y Docker Compose v2 en ejecución.
+* Puertos requeridos libres en el host: `5173`, `3000`, `5432`, `8080`, `8082`, `6379`, `5672`, `15672`, `6767`, `7777`.
 
-| Token | Rol |
-|---|---|
-| `token-voluntario` | Voluntario |
-| `token-referente` | ReferenteComedor |
-| `token-coordinador` | Coordinador |
+### Iniciar el Stack Completo
+Desde la raíz del repositorio:
 
-Sin `AUTH_FAKE=true` el modo desarrollo está apagado: el backend usa Firebase y estos tokens no funcionan.
+```bash
+docker compose up -d --build
+```
+
+### URLs de Acceso a Servicios
+
+| Servicio | URL | Descripción |
+| :--- | :--- | :--- |
+| **Frontend Web** | [http://localhost:5173](http://localhost:5173) | Aplicación SPA para usuarios y auditores |
+| **Backend REST API** | [http://localhost:3000](http://localhost:3000) | Core API NestJS |
+| **Keycloak IdP** | [http://localhost:8080](http://localhost:8080) | Consola de administración (`admin`/`admin`) y OIDC Discovery |
+| **Swagger UI** | [http://localhost:8082](http://localhost:8082) | Documentación interactiva OpenAPI |
+| **RabbitMQ Management** | [http://localhost:15672](http://localhost:15672) | Panel de monitoreo de colas (`banco`/`cambiar`) |
+| **Padrón Provincial (Haskell)** | [http://localhost:6767/comedores](http://localhost:6767/comedores) | Mock de sistema externo provincial |
+| **Rendición de Cuentas (Prolog)**| [http://localhost:7777/health](http://localhost:7777/health) | Mock de sistema de rendición ministerial |
