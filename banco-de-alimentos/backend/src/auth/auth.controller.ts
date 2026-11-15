@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Get, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { AuthService, UsuarioDemoDto } from './auth.service';
 import { LoginRequestDto, LoginResponseDto, UsuarioPerfilResponseDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -16,6 +16,23 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginRequestDto): Promise<LoginResponseDto> {
     return this.authService.login(loginDto);
+  }
+
+  /**
+   * Lista los usuarios disponibles en Keycloak enriquecidos con sus asignaciones reales en PostgreSQL
+   */
+  @Get('auth/usuarios-demo')
+  async obtenerUsuariosDemo(): Promise<UsuarioDemoDto[]> {
+    return this.authService.obtenerUsuariosDemo();
+  }
+
+  /**
+   * Autenticación de acceso rápido para demo delegada en el backend (evita credenciales en el frontend)
+   */
+  @Post('auth/login-demo')
+  @HttpCode(HttpStatus.OK)
+  async loginDemo(@Body('email') email: string): Promise<LoginResponseDto> {
+    return this.authService.loginDemo(email);
   }
 
   /**

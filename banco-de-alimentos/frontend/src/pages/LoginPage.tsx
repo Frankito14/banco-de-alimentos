@@ -1,25 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Rol, ProblemDetails } from '../types';
+import { ProblemDetails, UsuarioDemo } from '../types';
 import { ProblemAlert } from '../components/ui/ProblemAlert';
-import { ApiError } from '../services/api';
-import { ShieldCheck, ArrowRight, UserCheck, KeyRound, Building2 } from 'lucide-react';
+import { api, ApiError } from '../services/api';
+import { ArrowRight, UserCheck, KeyRound, Building2 } from 'lucide-react';
+
+function formatDemoSubtitle(user: UsuarioDemo): string {
+  if (user.rol === 'Voluntario') {
+    return `${user.depositoNombre || 'Sin depósito asignado'} · Registra entregas`;
+  }
+  if (user.rol === 'ReferenteComedor') {
+    const comedorDesc = user.comedorNombre
+      ? `${user.comedorNombre}${user.comedorAsignadoId ? ` (#${user.comedorAsignadoId})` : ''}`
+      : 'Sin comedor asignado';
+    return `${comedorDesc} · Confirma recepción física`;
+  }
+  return 'Supervisión provincial y auditoría';
+}
 
 export const LoginPage: React.FC = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, loginDemo, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isAuthenticated) {
       navigate('/inicio', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
-  const [email, setEmail] = useState('voluntario@bancodealimentos.gob.ar');
-  const [password, setPassword] = useState('PasswordSegura123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [problem, setProblem] = useState<ProblemDetails | null>(null);
+  const [usuariosDemo, setUsuariosDemo] = useState<UsuarioDemo[]>([]);
+  const [loadingDemoUsers, setLoadingDemoUsers] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .getUsuariosDemo()
+      .then((data) => {
+        if (active) setUsuariosDemo(data);
+      })
+      .catch((err) => {
+        console.error('No se pudieron cargar los usuarios demo desde el backend:', err);
+      })
+      .finally(() => {
+        if (active) setLoadingDemoUsers(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +69,7 @@ export const LoginPage: React.FC = () => {
         setProblem({
           status: 500,
           title: 'Error de conexión',
-          detail: 'No se pudo comunicar con el proveedor de identidad OIDC.'
+          detail: 'No se pudo conectar con el servidor de autenticación. Verificá tu conexión e intentá nuevamente.'
         });
       }
     } finally {
@@ -44,14 +77,22 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickDemoLogin = async (role: Rol) => {
+  const handleQuickDemoLogin = async (demoEmail: string) => {
     setProblem(null);
     setIsLoading(true);
     try {
-      await login('', '', role);
+      await loginDemo(demoEmail);
       navigate('/inicio');
     } catch (err) {
-      if (err instanceof ApiError) setProblem(err.problem);
+      if (err instanceof ApiError) {
+        setProblem(err.problem);
+      } else {
+        setProblem({
+          status: 500,
+          title: 'Error de conexión',
+          detail: 'No se pudo conectar con el servidor de autenticación. Verificá tu conexión e intentá nuevamente.'
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +116,7 @@ export const LoginPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-                Correo Electrónico (Identidad OIDC)
+                Correo Electrónico
               </label>
               <div className="mt-1 relative">
                 <input
@@ -120,72 +161,37 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Selector Rápido para la Exposición y Demo con el Jurado */}
+          {/* Selector Rápido cargado dinámicamente desde el Backend */}
           <div className="mt-8 pt-6 border-t border-slate-200">
             <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold mb-3">
               <UserCheck className="w-4 h-4 text-emerald-600" />
               <span>Acceso Rápido para Demo (1 Clic):</span>
             </div>
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin('Voluntario')}
-                className="w-full text-left px-3 py-2 border border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50/50 transition flex items-center justify-between group"
-              >
-                <div>
-                  <p className="text-xs font-bold text-slate-800">Vol Untario (Voluntario)</p>
-                  <p className="text-[11px] text-slate-500">Depósito N° 1 Hurlingham · Registra entregas</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin('ReferenteComedor')}
-                className="w-full text-left px-3 py-2 border border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50/50 transition flex items-center justify-between group"
-              >
-                <div>
-                  <p className="text-xs font-bold text-slate-800">Refe Rente (Referente)</p>
-                  <p className="text-[11px] text-slate-500">Comedor Rayito de Sol · Confirma recepción física</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition" />
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  setProblem(null);
-                  setIsLoading(true);
-                  try {
-                    await login('referente@losceibos.gob.ar', 'PasswordSegura123!');
-                    navigate('/inicio');
-                  } catch (err) {
-                    if (err instanceof ApiError) setProblem(err.problem);
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-                className="w-full text-left px-3 py-2 border border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50/50 transition flex items-center justify-between group"
-              >
-                <div>
-                  <p className="text-xs font-bold text-slate-800">Pedro Morales (Referente)</p>
-                  <p className="text-[11px] text-slate-500">Comedor Los Ceibos (#9) · Confirma recepción física</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin('Coordinador')}
-                className="w-full text-left px-3 py-2 border border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50/50 transition flex items-center justify-between group"
-              >
-                <div>
-                  <p className="text-xs font-bold text-slate-800">Cor Dinador (Coordinador)</p>
-                  <p className="text-[11px] text-slate-500">Ministerio · Supervisión provincial</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition" />
-              </button>
-            </div>
+            {loadingDemoUsers ? (
+              <p className="text-xs text-slate-400">Cargando perfiles disponibles desde el backend...</p>
+            ) : usuariosDemo.length === 0 ? (
+              <p className="text-xs text-slate-400">No hay perfiles de acceso rápido disponibles.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2">
+                {usuariosDemo.map((demoUser) => (
+                  <button
+                    key={demoUser.id}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => handleQuickDemoLogin(demoUser.email)}
+                    className="w-full text-left px-3 py-2 border border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50/50 transition flex items-center justify-between group disabled:opacity-50"
+                  >
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">
+                        {demoUser.nombre} ({demoUser.rol})
+                      </p>
+                      <p className="text-[11px] text-slate-500">{formatDemoSubtitle(demoUser)}</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

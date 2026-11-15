@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Entrega } from '../types';
-import { api } from '../services/api';
+import { Entrega, ProblemDetails } from '../types';
+import { api, ApiError } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { ProblemAlert } from '../components/ui/ProblemAlert';
 import {
   Package,
   Truck,
@@ -27,6 +28,7 @@ export const EntregasPage: React.FC = () => {
   const [filterEstado, setFilterEstado] = useState<'TODOS' | 'PENDIENTE' | 'ENTREGADO'>('TODOS');
   const [searchTerm, setSearchTerm] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [problem, setProblem] = useState<ProblemDetails | null>(null);
 
   // Helper para formatear siempre en hora oficial de Argentina (UTC-3)
   const formatDateTimeAr = (dateStr?: string | Date | null) => {
@@ -73,12 +75,21 @@ export const EntregasPage: React.FC = () => {
   }, []);
 
   const handleExportCsv = async () => {
+    setProblem(null);
     setIsExporting(true);
     try {
       await api.descargarReporteCsv();
     } catch (err) {
-      alert('Error al generar el reporte CSV para el Tribunal de Cuentas.');
       console.error(err);
+      if (err instanceof ApiError) {
+        setProblem(err.problem);
+      } else {
+        setProblem({
+          status: 500,
+          title: 'No se pudo descargar el reporte',
+          detail: 'Ocurrió un inconveniente al generar el archivo CSV. Intentá nuevamente.'
+        });
+      }
     } finally {
       setIsExporting(false);
     }
@@ -112,7 +123,11 @@ export const EntregasPage: React.FC = () => {
       const res = await api.reconstruirEstadoLote(selectedLoteId, fechaParam);
       setAuditResult(res);
     } catch (err: any) {
-      setAuditError(err.message || 'Error al reconstruir el estado histórico del lote.');
+      if (err instanceof ApiError) {
+        setAuditError(err.problem.detail || err.problem.title);
+      } else {
+        setAuditError(err.message || 'No se pudo reconstruir el estado histórico del lote.');
+      }
     } finally {
       setAuditLoading(false);
     }
@@ -170,6 +185,8 @@ export const EntregasPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <ProblemAlert problem={problem} onDismiss={() => setProblem(null)} />
 
       {/* Filtros */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">

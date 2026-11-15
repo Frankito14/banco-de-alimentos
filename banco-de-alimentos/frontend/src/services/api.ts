@@ -1,13 +1,13 @@
 import {
   LoginResponse,
   Usuario,
+  UsuarioDemo,
   Deposito,
   Comedor,
   Lote,
   Entrega,
   ItemEntregaRequest,
-  ProblemDetails,
-  Rol
+  ProblemDetails
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -41,22 +41,43 @@ export const api = {
    * POST /api/v1/auth/login
    * Autenticación delegada contra Keycloak a través del backend API.
    */
-  async login(email: string, password: string, demoRole?: Rol): Promise<LoginResponse> {
-    if (demoRole === 'Voluntario') {
-      email = 'voluntario@bancodealimentos.gob.ar';
-      password = 'PasswordSegura123!';
-    } else if (demoRole === 'ReferenteComedor') {
-      email = 'referente@comedor-sol.gob.ar';
-      password = 'PasswordSegura123!';
-    } else if (demoRole === 'Coordinador') {
-      email = 'coordinador@ministerio.gob.ar';
-      password = 'PasswordSegura123!';
-    }
-
+  async login(email: string, password: string): Promise<LoginResponse> {
     const res = await fetch(`${BASE_URL}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ usuario: email, password })
+    });
+
+    if (!res.ok) {
+      handleUnauthorized(res);
+      const errorJson = await res.json().catch(() => ({}));
+      throw new ApiError(errorJson as ProblemDetails);
+    }
+    return res.json();
+  },
+
+  /**
+   * GET /api/v1/auth/usuarios-demo
+   * Lista los usuarios disponibles desde el backend (Keycloak + PostgreSQL).
+   */
+  async getUsuariosDemo(): Promise<UsuarioDemo[]> {
+    const res = await fetch(`${BASE_URL}/api/v1/auth/usuarios-demo`);
+    if (!res.ok) {
+      const errorJson = await res.json().catch(() => ({}));
+      throw new ApiError(errorJson as ProblemDetails);
+    }
+    return res.json();
+  },
+
+  /**
+   * POST /api/v1/auth/login-demo
+   * Autenticación de acceso rápido delegada al backend sin exponer contraseñas en el frontend.
+   */
+  async loginDemo(email: string): Promise<LoginResponse> {
+    const res = await fetch(`${BASE_URL}/api/v1/auth/login-demo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
     });
 
     if (!res.ok) {

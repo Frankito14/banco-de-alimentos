@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   NotFoundException,
@@ -44,7 +45,7 @@ export class EntregasController {
   ) {
     const lotes = dto.lotes || dto.items || [];
     if (!lotes || lotes.length === 0) {
-      throw new BadRequestException('Debe incluir al menos un lote para la entrega');
+      throw new BadRequestException('Debés agregar al menos un alimento antes de registrar la entrega.');
     }
     const userId = usuario?.nombre || usuario?.id || usuario?.sub || 'usr-voluntario-1';
     const entrega = await this.registrarEntrega.ejecutar({
@@ -52,6 +53,7 @@ export class EntregasController {
       comedorId: dto.comedorId,
       lotes,
       creadoPor: userId,
+      observaciones: dto.observaciones,
     });
     res.setHeader('Location', `/api/v1/entregas/${entrega.id}`);
     return aEntregaResponse(entrega);
@@ -83,7 +85,7 @@ export class EntregasController {
   ) {
     const entrega = await this.entregaRepository.findById(entregaId);
     if (!entrega) {
-      throw new NotFoundException(`No se encontró la entrega con ID ${entregaId}`);
+      throw new NotFoundException('No se encontró la entrega solicitada.');
     }
 
     if (
@@ -91,7 +93,7 @@ export class EntregasController {
       user.comedorAsignadoId &&
       entrega.comedorId !== user.comedorAsignadoId
     ) {
-      throw new BadRequestException('No tiene permisos para consultar entregas pertenecientes a otro comedor.');
+      throw new ForbiddenException('No tenés permisos para consultar entregas pertenecientes a otro comedor.');
     }
 
     return aEntregaResponse(entrega);
@@ -107,7 +109,7 @@ export class EntregasController {
   ) {
     const entregaExistente = await this.entregaRepository.findById(entregaId);
     if (!entregaExistente) {
-      throw new NotFoundException(`No se encontró la entrega con ID ${entregaId}`);
+      throw new NotFoundException('No se encontró la entrega solicitada.');
     }
 
     if (
@@ -115,10 +117,10 @@ export class EntregasController {
       user.comedorAsignadoId &&
       entregaExistente.comedorId !== user.comedorAsignadoId
     ) {
-      throw new BadRequestException('No puede confirmar la recepción de un pedido asignado a otro comedor.');
+      throw new ForbiddenException('No podés confirmar la recepción de un pedido asignado a otro comedor.');
     }
 
-    const entrega = await this.confirmarEntrega.ejecutar(entregaId);
+    const entrega = await this.confirmarEntrega.ejecutar(entregaId, dto.observaciones);
     return aEntregaResponse(entrega);
   }
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Comedor, Lote, ProblemDetails, ItemEntregaRequest } from '../types';
+import { Comedor, Deposito, Lote, ProblemDetails, ItemEntregaRequest } from '../types';
 import { api, ApiError } from '../services/api';
 import { ProblemAlert } from '../components/ui/ProblemAlert';
 import {
@@ -13,18 +13,22 @@ import {
   Minus,
   Trash2,
   ShoppingBag,
-  ArrowRight
+  ArrowRight,
+  Warehouse
 } from 'lucide-react';
 
 export const RegistrarEntregaPage: React.FC = () => {
   const { usuario } = useAuth();
   const navigate = useNavigate();
 
+  const [depositos, setDepositos] = useState<Deposito[]>([]);
   const [comedores, setComedores] = useState<Comedor[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingStock, setLoadingStock] = useState(false);
 
   // Form State
+  const [selectedDepositoId, setSelectedDepositoId] = useState<string>('');
   const [selectedComedorId, setSelectedComedorId] = useState<string>('');
   const [cartItems, setCartItems] = useState<{ loteId: string; cantidad: number }[]>([]);
   const [observaciones, setObservaciones] = useState<string>('');
@@ -33,14 +37,27 @@ export const RegistrarEntregaPage: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     async function loadFormDependencies() {
       try {
-        const [comedoresData, lotesData] = await Promise.all([
-          api.getComedores(),
-          api.getStock(usuario?.depositoAsignadoId || 'dep-hurlingham')
+        const [depositosData, comedoresData] = await Promise.all([
+          api.getDepositos(),
+          api.getComedores()
         ]);
+        if (!active) return;
+
+        setDepositos(depositosData);
         setComedores(comedoresData);
-        setLotes(lotesData);
+
+        const initialDepositoId =
+          usuario?.depositoAsignadoId || depositosData[0]?.id || '';
+        setSelectedDepositoId(initialDepositoId);
+
+        if (initialDepositoId) {
+          const lotesData = await api.getStock(initialDepositoId);
+          if (!active) return;
+          setLotes(lotesData);
+        }
 
         // Preseleccionar el primer comedor habilitado
         const firstEnabled = comedoresData.find((c) => c.habilitado);
@@ -48,58 +65,113 @@ export const RegistrarEntregaPage: React.FC = () => {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
     loadFormDependencies();
+    return () => {
+      active = false;
+    };
   }, [usuario]);
 
+  const selectedDeposito = depositos.find((d) => d.id === selectedDepositoId);
   const selectedComedor = comedores.find((c) => c.id === selectedComedorId);
+
+  const handleDepositoChange = async (newDepositoId: string) => {
+    setSelectedDepositoId(newDepositoId);
+    setCartItems([]);
+    setProblem(null);
+
+    if (!newDepositoId) {
+      setLotes([]);
+      return;
+    }
+
+    setLoadingStock(true);
+    try {
+      const lotesData = await api.getStock(newDepositoId);
+      setLotes(lotesData);
+    } catch (err) {
+      console.error(err);
+      if (err instanceof ApiError) {
+        setProblem(err.problem);
+      }
+    } finally {
+      setLoadingStock(false);
+    }
+  };
 
   // Manejo del carrito de lotes
   const handleAddOrIncrement = (lote: Lote) => {
+    setProblem(null);
     setCartItems((prev) => {
       const existing = prev.find((i) => i.loteId === lote.id);
       if (existing) {
         if (existing.cantidad >= lote.stockDisponible) return prev;
         return prev.map((i) =>
-          i.loteId === lote.id ? { ...i, cantidad: i.cantidad + 10 } : i
+          i.loteId === lote.id ? { ...i, cantidad: i.cantidad + 1 } : i
         );
       }
-      return [...prev, { loteId: lote.id, cantidad: Math.min(10, lote.stockDisponible) }];
+      return [...prev, { loteId: lote.id, cantidad: Math.min(1, lote.stockDisponible) }];
     });
   };
 
   const handleDecrement = (loteId: string) => {
+    setProblem(null);
     setCartItems((prev) =>
       prev
-        .map((i) => (i.loteId === loteId ? { ...i, cantidad: i.cantidad - 10 } : i))
+        .map((i) => (i.loteId === loteId ? { ...i, cantidad: i.cantidad - 1 } : i))
         .filter((i) => i.cantidad > 0)
     );
   };
 
+  const handleQuantityInput = (lote: Lote, rawValue: string) => {
+    setProblem(null);
+    if (rawValue === '') {
+      setCartItems((prev) =>
+        prev.map((i) => (i.loteId === lote.id ? { ...i, cantidad: 0 } : i))
+      );
+      return;
+    }
+    const parsed = parseInt(rawValue, 10);
+    if (Number.isNaN(parsed)) return;
+    const clamped = Math.max(0, Math.min(parsed, lote.stockDisponible));
+    setCartItems((prev) =>
+      prev.map((i) => (i.loteId === lote.id ? { ...i, cantidad: clamped } : i))
+    );
+  };
+
+  const handleQuantityBlur = (loteId: string) => {
+    setCartItems((prev) =>
+      prev.map((i) => (i.loteId === loteId && i.cantidad < 1 ? { ...i, cantidad: 1 } : i))
+    );
+  };
+
   const handleRemove = (loteId: string) => {
+    setProblem(null);
     setCartItems((prev) => prev.filter((i) => i.loteId !== loteId));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!usuario) return;
+    if (!usuario || !selectedDepositoId || !selectedComedorId) return;
     setProblem(null);
     setSuccessMsg(null);
     setSubmitting(true);
 
     try {
-      const itemsPayload: ItemEntregaRequest[] = cartItems.map((ci) => ({
-        loteId: ci.loteId,
-        cantidad: ci.cantidad
-      }));
+      const itemsPayload: ItemEntregaRequest[] = cartItems
+        .filter((ci) => ci.cantidad > 0)
+        .map((ci) => ({
+          loteId: ci.loteId,
+          cantidad: ci.cantidad
+        }));
 
       await api.registrarEntrega({
-        depositoId: usuario.depositoAsignadoId || 'dep-hurlingham',
+        depositoId: selectedDepositoId,
         comedorId: selectedComedorId,
         items: itemsPayload,
-        observaciones,
+        observaciones: observaciones.trim() || undefined,
         currentUser: usuario
       });
 
@@ -157,13 +229,57 @@ export const RegistrarEntregaPage: React.FC = () => {
       )}
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Columna Izquierda: Selección de Comedor y Catálogo de Lotes */}
+        {/* Columna Izquierda: Depósito Origen, Selección de Comedor y Catálogo de Lotes */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Paso 1: Selección de Comedor */}
+          {/* Paso 1: Depósito Origen */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-xs flex items-center justify-center font-bold">
                 1
+              </span>
+              Depósito Origen (Stock Regional)
+            </h2>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Seleccionar Depósito:
+              </label>
+              <select
+                value={selectedDepositoId}
+                onChange={(e) => handleDepositoChange(e.target.value)}
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+              >
+                {depositos.map((deposito) => (
+                  <option key={deposito.id} value={deposito.id}>
+                    {deposito.nombre} ({deposito.localidad})
+                  </option>
+                ))}
+              </select>
+
+              {selectedDeposito && (
+                <div className="mt-3 p-3 rounded-lg border bg-slate-50 border-slate-200 text-slate-800 text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Warehouse className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold">{selectedDeposito.nombre}</p>
+                      <p className="text-[11px] text-slate-500">
+                        {selectedDeposito.direccion} · {selectedDeposito.localidad}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    Capacidad: {selectedDeposito.capacidadTotal}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Paso 2: Selección de Comedor */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-xs flex items-center justify-center font-bold">
+                2
               </span>
               Comedor Destino (Padrón Provincial)
             </h2>
@@ -174,7 +290,10 @@ export const RegistrarEntregaPage: React.FC = () => {
               </label>
               <select
                 value={selectedComedorId}
-                onChange={(e) => setSelectedComedorId(e.target.value)}
+                onChange={(e) => {
+                  setSelectedComedorId(e.target.value);
+                  setProblem(null);
+                }}
                 className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
               >
                 {comedores.map((comedor) => (
@@ -215,15 +334,24 @@ export const RegistrarEntregaPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Paso 2: Catálogo de Alimentos / Lotes ("Tipo McDonald's") */}
+          {/* Paso 3: Catálogo de Alimentos / Lotes */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-xs flex items-center justify-center font-bold">
-                2
+                3
               </span>
               Selección de Alimentos por Lote (Stock Disponible)
             </h2>
 
+            {loadingStock ? (
+              <div className="p-8 text-center text-xs text-slate-500">
+                Consultando stock del depósito seleccionado...
+              </div>
+            ) : lotes.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl">
+                No hay lotes registrados en este depósito.
+              </div>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {lotes.map((lote) => {
                 const inCart = cartItems.find((i) => i.loteId === lote.id);
@@ -272,9 +400,16 @@ export const RegistrarEntregaPage: React.FC = () => {
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
-                            <span className="px-2 text-xs font-bold text-slate-900">
-                              {inCart.cantidad}
-                            </span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={lote.stockDisponible}
+                              value={inCart.cantidad === 0 ? '' : inCart.cantidad}
+                              onChange={(e) => handleQuantityInput(lote, e.target.value)}
+                              onBlur={() => handleQuantityBlur(lote.id)}
+                              aria-label={`Cantidad para ${lote.alimento}`}
+                              className="w-16 text-center text-xs font-bold text-slate-900 bg-transparent focus:outline-none"
+                            />
                             <button
                               type="button"
                               disabled={inCart.cantidad >= lote.stockDisponible}
@@ -308,6 +443,7 @@ export const RegistrarEntregaPage: React.FC = () => {
                 );
               })}
             </div>
+            )}
           </div>
         </div>
 
@@ -370,7 +506,12 @@ export const RegistrarEntregaPage: React.FC = () => {
             <div className="mt-6 pt-4 border-t border-slate-100">
               <button
                 type="submit"
-                disabled={submitting || cartItems.length === 0}
+                disabled={
+                  submitting ||
+                  !selectedDepositoId ||
+                  !selectedComedorId ||
+                  cartItems.filter((i) => i.cantidad > 0).length === 0
+                }
                 className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-40"
               >
                 {submitting ? (

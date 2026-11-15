@@ -9,7 +9,7 @@ export class ConfirmarEntrega {
     private readonly publicador: PublicadorDeEntregas,
   ) {}
 
-  async ejecutar(entregaId: string): Promise<Entrega> {
+  async ejecutar(entregaId: string, observaciones?: string | null): Promise<Entrega> {
     // 404: la entrega tiene que existir
     const entrega = await this.entregas.findById(entregaId);
     if (!entrega) throw new RecursoNoEncontradoError('entrega', entregaId);
@@ -21,6 +21,7 @@ export class ConfirmarEntrega {
       ...entrega,
       estado: 'ENTREGADO',
       fechaRecepcion: new Date(),
+      observaciones: observaciones?.trim() ? observaciones.trim() : (entrega.observaciones ?? null),
     };
 
     await this.entregas.save(confirmada);

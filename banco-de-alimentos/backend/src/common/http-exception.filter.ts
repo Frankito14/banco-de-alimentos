@@ -1,14 +1,16 @@
 import { Catch, HttpException } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { ProblemDetailsException } from './exceptions/problem-details.exception';
 
 const BASE_TYPE = 'https://api.bancodealimentos.gob.ar/problemas/';
 
 const PROBLEMAS: Record<number, { code: string; title: string }> = {
-  400: { code: 'solicitud-invalida', title: 'Solicitud inválida' },
-  401: { code: 'no-autenticado', title: 'No autenticado' },
-  403: { code: 'acceso-denegado', title: 'Permisos insuficientes' },
-  404: { code: 'recurso-no-encontrado', title: 'Recurso no encontrado' },
+  400: { code: 'solicitud-invalida', title: 'Datos inválidos' },
+  401: { code: 'no-autenticado', title: 'Sesión no iniciada' },
+  403: { code: 'acceso-denegado', title: 'Acceso restringido' },
+  404: { code: 'recurso-no-encontrado', title: 'No encontrado' },
+  503: { code: 'servicio-no-disponible', title: 'Servicio temporalmente no disponible' },
 };
 
 @Catch(HttpException)
@@ -18,8 +20,24 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const res = ctx.getResponse<Response>();
     const req = ctx.getRequest<Request>();
 
+    if (exception instanceof ProblemDetailsException) {
+      const { status, title, detail, type, invalidParams } = exception.problem;
+      res
+        .status(status)
+        .type('application/problem+json')
+        .json({
+          type: type || `${BASE_TYPE}${PROBLEMAS[status]?.code ?? 'error'}`,
+          title,
+          status,
+          detail,
+          instance: req.originalUrl,
+          ...(invalidParams ? { invalidParams } : {}),
+        });
+      return;
+    }
+
     const status = exception.getStatus();
-    const problema = PROBLEMAS[status] ?? { code: 'error', title: exception.message };
+    const problema = PROBLEMAS[status] ?? { code: 'error', title: 'No se pudo completar la operación' };
 
     const body = exception.getResponse();
     const mensajes =

@@ -2,16 +2,21 @@ export type EstadoEntrega = 'PENDIENTE' | 'ENTREGADO' | 'CANCELADO';
 
 export interface Deposito {
   id: string;
+  nombre?: string;
 }
 
 export interface Comedor {
   id: string;
+  nombre?: string;
   habilitado: boolean;
 }
 
 export interface Lote {
   id: string;
   depositoId: string;
+  alimento?: string;
+  codigoLote?: string;
+  unidadMedida?: string;
   stockDisponible: number;
   fechaVencimiento: Date;
 }
@@ -36,5 +41,6 @@ export interface Entrega {
   estado: EstadoEntrega;
   fechaEntrega: Date; 
   fechaRecepcion: Date | null; 
-  creadoPor: string; 
+  creadoPor: string;
+  observaciones?: string | null;
 }

@@ -10,21 +10,17 @@ interface ProblemAlertProps {
 export const ProblemAlert: React.FC<ProblemAlertProps> = ({ problem, onDismiss }) => {
   if (!problem) return null;
 
+  const title = problem.title || 'No se pudo completar la acción';
+  const detail =
+    problem.detail || 'Ocurrió un inconveniente al procesar tu solicitud. Intentá nuevamente.';
+
   return (
     <div className="mb-6 p-4 rounded-xl border border-rose-300 bg-rose-50 text-rose-900 shadow-sm relative animate-fadeIn">
       <div className="flex items-start gap-3">
         <AlertTriangle className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" />
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded text-xs font-bold bg-rose-200 text-rose-800">
-              Error {problem.status}
-            </span>
-            <h4 className="font-semibold text-sm">{problem.title}</h4>
-          </div>
-          <p className="text-xs text-rose-700 leading-relaxed">{problem.detail}</p>
-          {problem.instance && (
-            <p className="text-[10px] text-rose-500 font-mono mt-1">Instance: {problem.instance}</p>
-          )}
+          <h4 className="font-semibold text-sm text-rose-900 mb-0.5">{title}</h4>
+          <p className="text-xs text-rose-800 leading-relaxed">{detail}</p>
         </div>
         {onDismiss && (
           <button

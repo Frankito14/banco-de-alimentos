@@ -17,6 +17,7 @@ export interface RegistrarEntregaInput {
   comedorId: string;
   lotes: ItemEntrega[];
   creadoPor: string;
+  observaciones?: string;
 }
 
 export class RegistrarEntrega {
@@ -36,7 +37,7 @@ export class RegistrarEntrega {
     if (!comedor) throw new ReferenciaInvalidaError('comedor', input.comedorId);
 
     // 409: regla de negocio 1, solo comedores habilitados
-    if (!comedor.habilitado) throw new ComedorNoHabilitadoError(comedor.id);
+    if (!comedor.habilitado) throw new ComedorNoHabilitadoError(comedor.id, comedor.nombre);
 
     const ahora = new Date();
     const lotesConDescuento: Lote[] = [];
@@ -46,7 +47,14 @@ export class RegistrarEntrega {
 
       // regla 2: no superar el stock del lote
       if (item.cantidad > lote.stockDisponible) {
-        throw new StockInsuficienteError(lote.id, lote.stockDisponible, item.cantidad);
+        throw new StockInsuficienteError(
+          lote.id,
+          lote.stockDisponible,
+          item.cantidad,
+          lote.alimento,
+          lote.codigoLote,
+          lote.unidadMedida,
+        );
       }
       lotesConDescuento.push({ ...lote, stockDisponible: lote.stockDisponible - item.cantidad });
     }
@@ -64,6 +72,7 @@ export class RegistrarEntrega {
       fechaEntrega: ahora,
       fechaRecepcion: null,
       creadoPor: input.creadoPor,
+      observaciones: input.observaciones?.trim() ? input.observaciones.trim() : null,
     };
 
     // el stock se descuenta cuando todos los lotes pasaron las validaciones

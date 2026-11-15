@@ -16,19 +16,19 @@ export class DomainExceptionFilter implements ExceptionFilter {
     const res = ctx.getResponse<Response>();
     const req = ctx.getRequest<Request>();
 
-    const { status, title } =
+    const status =
       error instanceof ReglaDeNegocioError
-        ? { status: 409, title: 'Conflicto con regla de negocio' }
+        ? 409
         : error instanceof RecursoNoEncontradoError
-          ? { status: 404, title: 'Recurso inexistente' }
-          : { status: 400, title: 'Referencia inválida' };
+          ? 404
+          : 400;
 
     res
       .status(status)
       .type('application/problem+json')
       .json({
         type: `${BASE_TYPE}${error.code}`,
-        title,
+        title: error.title,
         status,
         detail: error.message,
         instance: req.originalUrl,

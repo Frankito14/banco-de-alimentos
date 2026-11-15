@@ -29,15 +29,15 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
+  handleRequest(err: any, user: any, info: any, _context: ExecutionContext) {
     if (err || !user) {
       throw new ProblemDetailsException({
         status: 401,
-        title: 'No Autenticado (OIDC)',
+        title: 'Sesión no iniciada o expirada',
         detail:
           info?.message === 'jwt expired'
-            ? 'El token OIDC JWT ha expirado. Por favor, inicie sesión nuevamente.'
-            : 'Token OIDC ausente o inválido en el header Authorization Bearer.',
+            ? 'Tu sesión expiró. Por favor, volvé a iniciar sesión para continuar.'
+            : 'Necesitás iniciar sesión para realizar esta operación.',
         type: 'https://bancodealimentos.gob.ar/errores/token-invalido'
       });
     }

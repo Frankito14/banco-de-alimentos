@@ -11,12 +11,12 @@ export class PostgresDepositoRepository implements DepositoRepository {
 
   async findById(id: string): Promise<Deposito | null> {
     try {
-      const res = await this.db.query<{ id: string }>(
-        'SELECT id FROM depositos WHERE id = $1 LIMIT 1',
+      const res = await this.db.query<{ id: string; nombre: string }>(
+        'SELECT id, nombre FROM depositos WHERE id = $1 LIMIT 1',
         [id],
       );
       if (res.rows.length === 0) return null;
-      return { id: res.rows[0].id };
+      return { id: res.rows[0].id, nombre: res.rows[0].nombre };
     } catch (err) {
       this.logger.error(`Error findById en PostgresDepositoRepository: ${(err as Error).message}`);
       return null;
@@ -49,10 +49,13 @@ export class PostgresLoteRepository implements LoteRepository {
       const res = await this.db.query<{
         id: string;
         id_deposito: string;
+        alimento_nombre: string;
+        codigo_lote: string;
+        unidad_medida: string;
         stock: number;
         fecha_vencimiento: Date;
       }>(
-        'SELECT id, id_deposito, stock, fecha_vencimiento FROM lotes WHERE id = $1 LIMIT 1',
+        'SELECT id, id_deposito, alimento_nombre, codigo_lote, unidad_medida, stock, fecha_vencimiento FROM lotes WHERE id = $1 LIMIT 1',
         [id],
       );
       if (res.rows.length === 0) return null;
@@ -60,6 +63,9 @@ export class PostgresLoteRepository implements LoteRepository {
       return {
         id: row.id,
         depositoId: row.id_deposito,
+        alimento: row.alimento_nombre,
+        codigoLote: row.codigo_lote,
+        unidadMedida: row.unidad_medida,
         stockDisponible: Number(row.stock),
         fechaVencimiento: new Date(row.fecha_vencimiento),
       };
@@ -106,7 +112,7 @@ export class PostgresEntregaRepository implements EntregaRepository {
   async findById(id: string): Promise<Entrega | null> {
     try {
       const res = await this.db.query<any>(
-        `SELECT id, id_deposito, id_comedor, estado, fecha_entrega, fecha_recepcion, created_by 
+        `SELECT id, id_deposito, id_comedor, estado, fecha_entrega, fecha_recepcion, observaciones, created_by 
          FROM entregas 
          WHERE id = $1 LIMIT 1`,
         [id],
@@ -127,6 +133,7 @@ export class PostgresEntregaRepository implements EntregaRepository {
         fechaEntrega: new Date(row.fecha_entrega),
         fechaRecepcion: row.fecha_recepcion ? new Date(row.fecha_recepcion) : null,
         creadoPor: row.created_by,
+        observaciones: row.observaciones ?? null,
         lotes: lotesRes.rows.map((l) => ({
           id: l.id,
           loteId: l.id_lote,
@@ -193,8 +200,8 @@ export class PostgresEntregaRepository implements EntregaRepository {
     const existing = await this.db.query('SELECT id FROM entregas WHERE id = $1', [entrega.id]);
     if (existing.rows.length === 0) {
       await this.db.query(
-        `INSERT INTO entregas (id, id_deposito, id_comedor, estado, fecha_entrega, fecha_recepcion, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        `INSERT INTO entregas (id, id_deposito, id_comedor, estado, fecha_entrega, fecha_recepcion, observaciones, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           entrega.id,
           entrega.depositoId,
@@ -202,6 +209,7 @@ export class PostgresEntregaRepository implements EntregaRepository {
           entrega.estado,
           entrega.fechaEntrega,
           entrega.fechaRecepcion,
+          entrega.observaciones ?? null,
           entrega.creadoPor,
         ],
       );
@@ -229,12 +237,13 @@ export class PostgresEntregaRepository implements EntregaRepository {
 
       await this.db.query(
         `UPDATE entregas 
-         SET estado = $1, fecha_recepcion = $2, horario_recepcion = $3
-         WHERE id = $4`,
+         SET estado = $1, fecha_recepcion = $2, horario_recepcion = $3, observaciones = COALESCE($4, observaciones)
+         WHERE id = $5`,
         [
           entrega.estado,
           fechaRecepcionStr,
           horarioAr,
+          entrega.observaciones ?? null,
           entrega.id,
         ],
       );

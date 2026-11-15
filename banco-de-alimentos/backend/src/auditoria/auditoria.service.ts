@@ -68,7 +68,7 @@ export class AuditoriaService {
     );
 
     if (loteRes.rows.length === 0) {
-      throw new NotFoundException(`No se encontró el lote con identificador '${loteId}'.`);
+      throw new NotFoundException('No se encontró el lote de alimentos seleccionado para auditar.');
     }
 
     const lote = loteRes.rows[0];

@@ -9,6 +9,11 @@ export interface Usuario {
   comedorAsignadoId?: string | null;
 }
 
+export interface UsuarioDemo extends Usuario {
+  depositoNombre?: string | null;
+  comedorNombre?: string | null;
+}
+
 export interface LoginResponse {
   token: string;
   tokenType: string;

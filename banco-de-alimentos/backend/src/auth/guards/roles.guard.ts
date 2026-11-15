@@ -24,8 +24,8 @@ export class RolesGuard implements CanActivate {
     if (!user || !user.rol) {
       throw new ProblemDetailsException({
         status: 403,
-        title: 'Acceso Denegado (RBAC)',
-        detail: 'No se encontraron roles OIDC asociados a la identidad del usuario.',
+        title: 'Acceso restringido',
+        detail: 'No pudimos verificar los permisos de tu cuenta. Volvé a iniciar sesión.',
         type: 'https://bancodealimentos.gob.ar/errores/rol-no-encontrado'
       });
     }
@@ -34,8 +34,8 @@ export class RolesGuard implements CanActivate {
     if (!hasRole) {
       throw new ProblemDetailsException({
         status: 403,
-        title: 'Permisos Insuficientes (RBAC)',
-        detail: `El rol '${user.rol}' no tiene permisos para acceder a esta operación. Roles requeridos: [${requiredRoles.join(', ')}].`,
+        title: 'Acceso restringido',
+        detail: `Tu perfil actual (${user.rol}) no tiene permisos para realizar esta acción.`,
         type: 'https://bancodealimentos.gob.ar/errores/permisos-insuficientes'
       });
     }

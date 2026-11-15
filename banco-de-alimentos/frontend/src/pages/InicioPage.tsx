@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Entrega, Lote } from '../types';
+import { Comedor, Deposito, Entrega, Usuario } from '../types';
 import { api } from '../services/api';
 import {
   Truck,
@@ -9,44 +9,100 @@ import {
   Package,
   Clock,
   ArrowRight,
-  ShieldCheck,
   Building,
   AlertCircle
 } from 'lucide-react';
 
+function getAsignacionOperativa(
+  usuario: Usuario,
+  depositos: Deposito[],
+  comedores: Comedor[],
+  loading: boolean
+): string {
+  if (loading) return 'Cargando asignación...';
+
+  if (usuario.rol === 'Voluntario') {
+    const dep = depositos.find((d) => d.id === usuario.depositoAsignadoId) || depositos[0];
+    return dep ? `${dep.nombre} (${dep.localidad})` : 'Sin depósito asignado';
+  }
+
+  if (usuario.rol === 'ReferenteComedor') {
+    const com = comedores.find((c) => c.id === usuario.comedorAsignadoId);
+    if (com) {
+      return `${com.nombre} (${com.partido} · Padrón #${com.id})`;
+    }
+    return usuario.comedorAsignadoId ? `Comedor #${usuario.comedorAsignadoId}` : 'Sin comedor asignado';
+  }
+
+  return `${depositos.length} Depósitos Regionales · ${comedores.length} Comedores en Padrón`;
+}
+
 export const InicioPage: React.FC = () => {
   const { usuario } = useAuth();
   const [entregas, setEntregas] = useState<Entrega[]>([]);
-  const [lotes, setLotes] = useState<Lote[]>([]);
+  const [depositos, setDepositos] = useState<Deposito[]>([]);
+  const [comedores, setComedores] = useState<Comedor[]>([]);
+  const [lotesCount, setLotesCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!usuario) return;
+    const currentUsuario = usuario;
+    let active = true;
+
     async function loadData() {
+      setLoading(true);
       try {
         const filtro =
-          usuario?.rol === 'ReferenteComedor' && usuario.comedorAsignadoId
-            ? { comedorId: usuario.comedorAsignadoId }
+          currentUsuario.rol === 'ReferenteComedor' && currentUsuario.comedorAsignadoId
+            ? { comedorId: currentUsuario.comedorAsignadoId }
             : undefined;
 
-        const [allEntregas, allLotes] = await Promise.all([
-          api.getEntregas(filtro),
-          api.getStock(usuario?.depositoAsignadoId || 'dep-hurlingham')
+        const [depositosData, comedoresData, entregasData] = await Promise.all([
+          api.getDepositos(),
+          api.getComedores(),
+          api.getEntregas(filtro)
         ]);
-        setEntregas(allEntregas);
-        setLotes(allLotes);
+
+        let totalLotes = 0;
+        if (currentUsuario.rol === 'Coordinador') {
+          const auditLotes = await api.getLotesAuditoria();
+          totalLotes = auditLotes.length;
+        } else if (currentUsuario.rol === 'Voluntario') {
+          const depositoId = currentUsuario.depositoAsignadoId || depositosData[0]?.id;
+          if (depositoId) {
+            const stock = await api.getStock(depositoId);
+            totalLotes = stock.length;
+          }
+        } else {
+          const stocks = await Promise.all(depositosData.map((d) => api.getStock(d.id)));
+          totalLotes = stocks.flat().length;
+        }
+
+        if (!active) return;
+        setDepositos(depositosData);
+        setComedores(comedoresData);
+        setEntregas(entregasData);
+        setLotesCount(totalLotes);
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
+
     loadData();
+    return () => {
+      active = false;
+    };
   }, [usuario]);
 
   if (!usuario) return null;
 
   const pendientes = entregas.filter((e) => e.estado === 'PENDIENTE');
   const entregadas = entregas.filter((e) => e.estado === 'ENTREGADO');
+  const comedoresHabilitados = comedores.filter((c) => c.habilitado).length;
+  const asignacionTexto = getAsignacionOperativa(usuario, depositos, comedores, loading);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -66,15 +122,7 @@ export const InicioPage: React.FC = () => {
             <Building className="w-8 h-8 text-emerald-300" />
             <div className="text-sm">
               <p className="text-emerald-200 text-xs font-medium">Asignación Operativa</p>
-              <p className="font-bold">
-                {usuario.rol === 'Voluntario'
-                  ? 'Depósito Regional N° 1 (Hurlingham)'
-                  : usuario.rol === 'ReferenteComedor'
-                  ? usuario.comedorAsignadoId === '9'
-                    ? 'Comedor Los Ceibos (Padrón #9)'
-                    : 'Comedor Rayito de Sol'
-                  : 'Sede Central Ministerio'}
-              </p>
+              <p className="font-bold">{asignacionTexto}</p>
             </div>
           </div>
         </div>
@@ -91,7 +139,7 @@ export const InicioPage: React.FC = () => {
               <Package className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-3xl font-extrabold text-slate-900">{lotes.length}</p>
+          <p className="text-3xl font-extrabold text-slate-900">{lotesCount}</p>
           <p className="text-xs text-slate-500 mt-1">Lotes auditables con stock vigente</p>
         </div>
 
@@ -208,7 +256,7 @@ export const InicioPage: React.FC = () => {
                 Supervisión y Rendición de Cuentas (Tribunal de Cuentas)
               </h3>
               <p className="text-xs text-slate-600 mt-1">
-                Visualización consolidada de 15 depósitos y 900 comedores provinciales.
+                Visualización consolidada de {depositos.length} depósitos regionales y {comedores.length} comedores registrados ({comedoresHabilitados} habilitados en el Padrón Provincial).
               </p>
             </div>
             <Link

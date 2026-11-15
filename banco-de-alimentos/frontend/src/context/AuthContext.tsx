@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Usuario, Rol } from '../types';
+import { LoginResponse, Usuario } from '../types';
 import { api } from '../services/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -9,7 +9,8 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, demoRole?: Rol) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  loginDemo: (email: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -56,18 +57,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
   }, []);
 
-  const login = async (email: string, password: string, demoRole?: Rol) => {
+  const applyAuthSession = (resp: LoginResponse) => {
+    setToken(resp.token);
+    setUsuario(resp.usuario);
+    localStorage.setItem('token', resp.token);
+    localStorage.setItem('usuario', JSON.stringify(resp.usuario));
+  };
+
+  const runAuthAction = async (authRequest: () => Promise<LoginResponse>) => {
     setIsLoading(true);
     try {
-      const resp = await api.login(email, password, demoRole);
-      setToken(resp.token);
-      setUsuario(resp.usuario);
-      localStorage.setItem('token', resp.token);
-      localStorage.setItem('usuario', JSON.stringify(resp.usuario));
+      const resp = await authRequest();
+      applyAuthSession(resp);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const login = async (email: string, password: string) =>
+    runAuthAction(() => api.login(email, password));
+
+  const loginDemo = async (email: string) =>
+    runAuthAction(() => api.loginDemo(email));
 
   const logout = () => {
     setUsuario(null);
@@ -85,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!usuario && !!token,
         isLoading,
         login,
+        loginDemo,
         logout,
       }}
     >

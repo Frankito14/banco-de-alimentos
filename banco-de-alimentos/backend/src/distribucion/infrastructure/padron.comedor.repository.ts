@@ -25,11 +25,11 @@ export class PadronComedorRepository implements ComedorRepository {
     // 1. Verificar en sistema externo Padrón Provincial (en cache Redis / HTTP)
     try {
       const { comedores } = await this.padron.obtenerSnapshot();
-      const coincide = comedores.some(
+      const coincide = comedores.find(
         (c) => String(c.id) === String(id) || idDeComedor(String(c.id)) === id,
       );
       if (coincide) {
-        return { id, habilitado: true };
+        return { id, nombre: coincide.nombre, habilitado: true };
       }
     } catch (err) {
       this.logger.warn(`No se pudo verificar comedor en padrón provincial: ${(err as Error).message}`);
@@ -37,12 +37,16 @@ export class PadronComedorRepository implements ComedorRepository {
 
     // 2. Si no coincide en el padrón, consultar en base de datos PostgreSQL
     try {
-      const res = await this.db.query<{ id: string; habilitado: boolean }>(
-        'SELECT id, habilitado FROM comedores WHERE id = $1 LIMIT 1',
+      const res = await this.db.query<{ id: string; nombre: string; habilitado: boolean }>(
+        'SELECT id, nombre, habilitado FROM comedores WHERE id = $1 LIMIT 1',
         [id],
       );
       if (res.rows.length > 0) {
-        return { id: res.rows[0].id, habilitado: Boolean(res.rows[0].habilitado) };
+        return {
+          id: res.rows[0].id,
+          nombre: res.rows[0].nombre,
+          habilitado: Boolean(res.rows[0].habilitado),
+        };
       }
     } catch (err) {
       this.logger.error(`Error al consultar comedor en PostgreSQL: ${(err as Error).message}`);
