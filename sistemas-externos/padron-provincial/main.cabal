@@ -5,7 +5,7 @@ synopsis:           API REST mock del padron provincial de comedores
 build-type:         Simple
 
 executable padron-provincial
-    main-is:          Main.hs
+    main-is:          main.hs
     hs-source-dirs:   app
     build-depends:    base >=4.14 && <5
                     , aeson >=2.0

@@ -25,6 +25,16 @@ import { RecepcionEntregaDto } from './dto/recepcion-entrega.dto';
 import { RegistrarEntregaDto } from './dto/registrar-entrega.dto';
 import { aEntregaResponse } from './entrega.response';
 import { PostgresEntregaRepository } from '../infrastructure/postgres.repositories';
+import type { Usuario } from '../domain/entities';
+
+// Identifica a quien realiza la operación a partir del token OIDC
+function usuarioDelToken(token: OidcJwtPayload & { id?: string; nombre?: string }): Usuario {
+  const id = token?.sub || token?.id;
+  if (!id) {
+    throw new BadRequestException('No se pudo identificar al usuario de la sesión.');
+  }
+  return { id, nombre: token?.nombre || token?.email || id };
+}
 
 @Controller('entregas')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -47,12 +57,11 @@ export class EntregasController {
     if (!lotes || lotes.length === 0) {
       throw new BadRequestException('Debés agregar al menos un alimento antes de registrar la entrega.');
     }
-    const userId = usuario?.nombre || usuario?.id || usuario?.sub || 'usr-voluntario-1';
     const entrega = await this.registrarEntrega.ejecutar({
       depositoId: dto.depositoId,
       comedorId: dto.comedorId,
       lotes,
-      creadoPor: userId,
+      usuario: usuarioDelToken(usuario),
       observaciones: dto.observaciones,
     });
     res.setHeader('Location', `/api/v1/entregas/${entrega.id}`);
@@ -120,7 +129,7 @@ export class EntregasController {
       throw new ForbiddenException('No podés confirmar la recepción de un pedido asignado a otro comedor.');
     }
 
-    const entrega = await this.confirmarEntrega.ejecutar(entregaId, dto.observaciones);
+    const entrega = await this.confirmarEntrega.ejecutar(entregaId, usuarioDelToken(user), dto.observaciones);
     return aEntregaResponse(entrega);
   }
 }

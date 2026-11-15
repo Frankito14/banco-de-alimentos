@@ -467,21 +467,29 @@ export const EntregasPage: React.FC = () => {
                             className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold ${
                               mov.tipo === 'INGRESO_DONACION'
                                 ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-rose-100 text-rose-700'
+                                : mov.tipo === 'CONFIRMACION_RECEPCION'
+                                  ? 'bg-sky-100 text-sky-700'
+                                  : 'bg-rose-100 text-rose-700'
                             }`}
                           >
                             {mov.tipo === 'INGRESO_DONACION' ? (
                               <ArrowDownRight className="w-4 h-4" />
+                            ) : mov.tipo === 'CONFIRMACION_RECEPCION' ? (
+                              <CheckCircle2 className="w-4 h-4" />
                             ) : (
                               <ArrowUpRight className="w-4 h-4" />
                             )}
                           </div>
                           <div>
                             <p className="font-bold text-slate-800">
-                              {mov.tipo === 'INGRESO_DONACION' ? 'Ingreso Donación' : 'Despacho a Comedor'}
+                              {mov.tipo === 'INGRESO_DONACION'
+                                ? 'Ingreso Donación'
+                                : mov.tipo === 'CONFIRMACION_RECEPCION'
+                                  ? 'Recepción Confirmada'
+                                  : 'Despacho a Comedor'}
                             </p>
                             <p className="text-[11px] text-slate-500">
-                              {mov.destinoUOrigen} · {formatDateTimeAr(mov.fecha)} hs
+                              {mov.destinoUOrigen} · {formatDateTimeAr(mov.fecha)} hs · {mov.responsable}
                             </p>
                           </div>
                         </div>
@@ -489,10 +497,18 @@ export const EntregasPage: React.FC = () => {
                         <div className="text-right">
                           <p
                             className={`font-mono font-bold ${
-                              mov.tipo === 'INGRESO_DONACION' ? 'text-emerald-700' : 'text-rose-700'
+                              mov.tipo === 'INGRESO_DONACION'
+                                ? 'text-emerald-700'
+                                : mov.tipo === 'CONFIRMACION_RECEPCION'
+                                  ? 'text-sky-700'
+                                  : 'text-rose-700'
                             }`}
                           >
-                            {mov.tipo === 'INGRESO_DONACION' ? `+${mov.cantidad}` : `-${mov.cantidad}`}
+                            {mov.tipo === 'INGRESO_DONACION'
+                              ? `+${mov.cantidad}`
+                              : mov.tipo === 'CONFIRMACION_RECEPCION'
+                                ? 'Sin cambio de stock'
+                                : `-${mov.cantidad}`}
                           </p>
                           <p className="text-[10px] text-slate-400 font-mono">
                             Saldo: {mov.saldoResultante}

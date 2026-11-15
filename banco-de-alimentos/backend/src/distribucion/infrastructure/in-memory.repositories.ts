@@ -1,4 +1,5 @@
-import type { Comedor, Deposito, Entrega, Lote } from '../domain/entities';
+import type { Comedor, Deposito, Entrega, Lote, Usuario } from '../domain/entities';
+import { EntregaYaConfirmadaError, StockInsuficienteError } from '../domain/errors/entrega.errors';
 import type {
   ComedorRepository,
   DepositoRepository,
@@ -31,25 +32,70 @@ export class InMemoryComedorRepository implements ComedorRepository {
   }
 }
 
-export class InMemoryLoteRepository implements LoteRepository {
-  private readonly datos = new Map<string, Lote>([
-    [LOTE_OK, { id: LOTE_OK, depositoId: DEPOSITO_1, stockDisponible: 100, fechaVencimiento: new Date('2030-12-31') }],
-  ]);
-  async findById(id: string) {
-    return this.datos.get(id) ?? null;
+// Movimientos de stock en memoria: el stock de un lote es la suma de sus movimientos
+export class InMemoryMovimientos {
+  readonly movimientos: { loteId: string; cantidad: number }[] = [{ loteId: LOTE_OK, cantidad: 100 }];
+
+  stock(loteId: string): number {
+    return this.movimientos.filter((m) => m.loteId === loteId).reduce((total, m) => total + m.cantidad, 0);
   }
-  async save(lote: Lote) {
-    this.datos.set(lote.id, lote);
+}
+
+export class InMemoryLoteRepository implements LoteRepository {
+  private readonly datos = new Map<string, Omit<Lote, 'stockDisponible'>>([
+    [LOTE_OK, { id: LOTE_OK, depositoId: DEPOSITO_1, fechaVencimiento: new Date('2030-12-31') }],
+  ]);
+
+  constructor(private readonly movimientos: InMemoryMovimientos) {}
+
+  async findById(id: string): Promise<Lote | null> {
+    const lote = this.datos.get(id);
+    return lote ? { ...lote, stockDisponible: this.movimientos.stock(id) } : null;
   }
 }
 
 export class InMemoryEntregaRepository implements EntregaRepository {
-  private readonly datos = new Map<string, Entrega>();
-  async findById(id: string) {
-    return this.datos.get(id) ?? null;
+  private readonly entregas = new Map<string, Entrega>();
+  private readonly historial: { entregaId: string; estado: string; fecha: Date; observaciones: string | null }[] = [];
+
+  constructor(private readonly movimientos: InMemoryMovimientos) {}
+
+  async findById(id: string): Promise<Entrega | null> {
+    const entrega = this.entregas.get(id);
+    if (!entrega) return null;
+    const confirmacion = this.historial.find((h) => h.entregaId === id && h.estado === 'CONFIRMADO');
+    return {
+      ...entrega,
+      estado: confirmacion ? 'ENTREGADO' : 'PENDIENTE',
+      fechaRecepcion: confirmacion?.fecha ?? null,
+      observacionesRecepcion: confirmacion?.observaciones ?? null,
+    };
   }
-  async save(entrega: Entrega) {
-    this.datos.set(entrega.id, entrega);
+
+  async registrar(entrega: Entrega, _usuario: Usuario): Promise<void> {
+    for (const item of entrega.lotes) {
+      const disponible = this.movimientos.stock(item.loteId);
+      if (item.cantidad > disponible) {
+        throw new StockInsuficienteError(item.loteId, disponible, item.cantidad);
+      }
+    }
+    this.entregas.set(entrega.id, entrega);
+    for (const item of entrega.lotes) {
+      this.movimientos.movimientos.push({ loteId: item.loteId, cantidad: -item.cantidad });
+    }
+    this.historial.push({ entregaId: entrega.id, estado: 'PENDIENTE', fecha: entrega.fechaEntrega, observaciones: null });
+  }
+
+  async registrarConfirmacion(
+    entregaId: string,
+    _usuario: Usuario,
+    fecha: Date,
+    observaciones: string | null,
+  ): Promise<void> {
+    if (this.historial.some((h) => h.entregaId === entregaId && h.estado === 'CONFIRMADO')) {
+      throw new EntregaYaConfirmadaError(entregaId);
+    }
+    this.historial.push({ entregaId, estado: 'CONFIRMADO', fecha, observaciones });
   }
 }
 

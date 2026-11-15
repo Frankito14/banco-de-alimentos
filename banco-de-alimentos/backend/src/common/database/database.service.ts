@@ -1,6 +1,6 @@
 // src/common/database/database.service.ts
 import { Injectable, Inject, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
-import { Pool, QueryResult, QueryResultRow } from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { DATABASE_POOL } from './database.constants';
 import { INITIAL_SCHEMA_AND_SEED } from './database.seed';
 
@@ -20,6 +20,25 @@ export class DatabaseService implements OnApplicationBootstrap, OnModuleDestroy 
 
   async query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
     return this.pool.query<T>(text, params);
+  }
+
+  /**
+   * Ejecuta varias consultas en una única transacción ACID.
+   * Si la función lanza un error, se hace ROLLBACK y no queda ningún cambio a medias.
+   */
+  async transaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const resultado = await fn(client);
+      await client.query('COMMIT');
+      return resultado;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async seedDatabase(): Promise<void> {

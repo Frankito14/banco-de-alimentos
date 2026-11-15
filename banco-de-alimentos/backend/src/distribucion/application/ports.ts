@@ -1,4 +1,4 @@
-import type { Comedor, Deposito, Entrega, Lote } from '../domain/entities';
+import type { Comedor, Deposito, Entrega, Lote, Usuario } from '../domain/entities';
 
 export interface DepositoRepository {
   findById(id: string): Promise<Deposito | null>;
@@ -10,12 +10,30 @@ export interface ComedorRepository {
 
 export interface LoteRepository {
   findById(id: string): Promise<Lote | null>;
-  save(lote: Lote): Promise<void>;
 }
 
 export interface EntregaRepository {
   findById(id: string): Promise<Entrega | null>;
-  save(entrega: Entrega): Promise<void>;
+
+  /**
+   * Registra una entrega nueva en una única transacción: la entrega, sus lotes,
+   * un movimiento de stock negativo por cada lote y el estado inicial PENDIENTE.
+   * Vuelve a verificar el stock con los lotes bloqueados, para que dos entregas
+   * simultáneas no puedan dejar un lote con stock negativo.
+   * Solo inserta registros: no modifica ni borra nada.
+   */
+  registrar(entrega: Entrega, usuario: Usuario): Promise<void>;
+
+  /**
+   * Registra la confirmación de recepción como un registro nuevo en el historial
+   * de estados de la entrega. No modifica la entrega.
+   */
+  registrarConfirmacion(
+    entregaId: string,
+    usuario: Usuario,
+    fecha: Date,
+    observaciones: string | null,
+  ): Promise<void>;
 }
 
 // Cola de mensajes (RabbitMQ)

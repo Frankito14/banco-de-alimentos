@@ -1,4 +1,4 @@
-import type { Entrega } from '../domain/entities';
+import type { Entrega, Usuario } from '../domain/entities';
 import { RecursoNoEncontradoError } from '../domain/errors/domain-error';
 import { EntregaYaConfirmadaError } from '../domain/errors/entrega.errors';
 import type { EntregaRepository, PublicadorDeEntregas } from './ports';
@@ -9,7 +9,11 @@ export class ConfirmarEntrega {
     private readonly publicador: PublicadorDeEntregas,
   ) {}
 
-  async ejecutar(entregaId: string, observaciones?: string | null): Promise<Entrega> {
+  async ejecutar(
+    entregaId: string,
+    usuario: Usuario,
+    observaciones?: string | null,
+  ): Promise<Entrega> {
     // 404: la entrega tiene que existir
     const entrega = await this.entregas.findById(entregaId);
     if (!entrega) throw new RecursoNoEncontradoError('entrega', entregaId);
@@ -17,14 +21,19 @@ export class ConfirmarEntrega {
     // 409: solo se confirman entregas pendientes
     if (entrega.estado !== 'PENDIENTE') throw new EntregaYaConfirmadaError(entrega.id);
 
+    const fechaRecepcion = new Date();
+    const observacionesRecepcion = observaciones?.trim() ? observaciones.trim() : null;
+
+    // La confirmación se agrega al historial de estados: la entrega no se modifica
+    await this.entregas.registrarConfirmacion(entrega.id, usuario, fechaRecepcion, observacionesRecepcion);
+
     const confirmada: Entrega = {
       ...entrega,
       estado: 'ENTREGADO',
-      fechaRecepcion: new Date(),
-      observaciones: observaciones?.trim() ? observaciones.trim() : (entrega.observaciones ?? null),
+      fechaRecepcion,
+      observacionesRecepcion,
     };
 
-    await this.entregas.save(confirmada);
     await this.publicador.publicar(confirmada);
     return confirmada;
   }

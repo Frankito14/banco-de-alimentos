@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
 
 export interface MovimientoAuditoria {
-  tipo: 'INGRESO_DONACION' | 'DESPACHO_ENTREGA';
+  tipo: 'INGRESO_DONACION' | 'DESPACHO_ENTREGA' | 'CONFIRMACION_RECEPCION';
   fecha: string;
   cantidad: number;
   saldoResultante: number;
@@ -37,6 +37,18 @@ export interface ReconstruccionLoteResponse {
   movimientosHistoricos: MovimientoAuditoria[];
 }
 
+// Evento de la línea de tiempo antes de calcular el saldo
+interface EventoLinea {
+  tipo: MovimientoAuditoria['tipo'];
+  fecha: Date;
+  cantidad: number; // con signo: + ingreso, - entrega, 0 confirmación
+  referenciaId: string;
+  destinoUOrigen: string;
+  responsable: string;
+  observaciones: string | null;
+  orden: number; // desempate entre eventos con la misma fecha
+}
+
 @Injectable()
 export class AuditoriaService {
   constructor(private readonly db: DatabaseService) {}
@@ -44,17 +56,26 @@ export class AuditoriaService {
   /**
    * Reconstruye el estado histórico y saldo exacto de un lote a cualquier fecha pasada
    * Requisito estricto Tribunal de Cuentas (NFR Auditoría e Inmutabilidad).
+   *
+   * El saldo se calcula sumando los movimientos de stock del lote registrados hasta la
+   * fecha de corte. Las confirmaciones de recepción se agregan a la línea de tiempo desde
+   * el historial de estados de las entregas (no modifican el saldo).
    */
   async reconstruirEstadoLote(
     loteId: string,
     fechaCorteStr?: string,
     auditorNombre = 'Auditor Tribunal de Cuentas',
   ): Promise<ReconstruccionLoteResponse> {
-    // 1. Obtener datos del lote
+    const fechaCorte = fechaCorteStr ? new Date(fechaCorteStr) : new Date();
+    if (Number.isNaN(fechaCorte.getTime())) {
+      throw new BadRequestException('La fecha de corte no tiene un formato válido.');
+    }
+
+    // 1. Datos del lote y su stock actual
     const loteRes = await this.db.query(
       `SELECT l.id, l.codigo_lote as "codigoLote", l.alimento_nombre as "alimento",
               l.unidad_medida as "unidadMedida", l.cantidad_inicial as "cantidadInicial",
-              l.stock as "stockActual",
+              s.stock as "stockActual",
               TO_CHAR(l.fecha_vencimiento, 'YYYY-MM-DD') as "fechaVencimiento",
               l.donante_origen as "donanteOrigen",
               l.created_at as "fechaIngreso",
@@ -62,6 +83,7 @@ export class AuditoriaService {
               d.nombre as "depositoNombre"
        FROM lotes l
        JOIN depositos d ON l.id_deposito = d.id
+       JOIN v_stock_lotes s ON s.id_lote = l.id
        WHERE l.id = $1 OR l.codigo_lote = $1
        LIMIT 1`,
       [loteId],
@@ -72,53 +94,82 @@ export class AuditoriaService {
     }
 
     const lote = loteRes.rows[0];
-    const fechaCorte = fechaCorteStr ? new Date(fechaCorteStr) : new Date();
 
-    // 2. Consultar todos los despachos/entregas del lote hasta la fecha de corte
-    const entregasRes = await this.db.query(
-      `SELECT e.id as "entregaId", e.fecha_entrega as "fechaEntrega",
-              e.id_comedor as "comedorId", COALESCE(c.nombre, 'Comedor ' || e.id_comedor) as "comedorNombre",
-              le.cantidad, e.estado, e.created_by as "responsable", e.observaciones
-       FROM lotes_entregados le
-       JOIN entregas e ON le.id_entrega = e.id
-       LEFT JOIN comedores c ON e.id_comedor = c.id
-       WHERE le.id_lote = $1
-         AND e.fecha_entrega <= $2
-       ORDER BY e.fecha_entrega ASC`,
-      [lote.id, fechaCorte.toISOString()],
+    // 2. Movimientos de stock del lote hasta la fecha de corte
+    const movimientosRes = await this.db.query(
+      `SELECT m.id, m.tipo_movimiento as "tipo", m.cantidad, m.fecha_hora as "fecha",
+              m.id_entrega as "entregaId", m.usuario_nombre as "responsable",
+              COALESCE(c.nombre, 'Comedor ' || e.id_comedor) as "comedorNombre",
+              e.observaciones
+       FROM movimientos_stock m
+       LEFT JOIN entregas e ON e.id = m.id_entrega
+       LEFT JOIN comedores c ON c.id = e.id_comedor
+       WHERE m.id_lote = $1
+         AND m.fecha_hora <= $2
+       ORDER BY m.fecha_hora ASC, m.id ASC`,
+      [lote.id, fechaCorte],
     );
 
-    // 3. Reconstruir la línea de tiempo inmutable
-    const movimientos: MovimientoAuditoria[] = [];
-    let saldo = Number(lote.cantidadInicial);
+    // 3. Confirmaciones de recepción de las entregas de este lote hasta la fecha de corte
+    const confirmacionesRes = await this.db.query(
+      `SELECT DISTINCT h.id, h.id_entrega as "entregaId", h.fecha_hora as "fecha",
+              h.usuario_nombre as "responsable", h.observaciones,
+              COALESCE(c.nombre, 'Comedor ' || e.id_comedor) as "comedorNombre"
+       FROM historial_estado_entrega h
+       JOIN lotes_entregados le ON le.id_entrega = h.id_entrega
+       JOIN entregas e ON e.id = h.id_entrega
+       LEFT JOIN comedores c ON c.id = e.id_comedor
+       WHERE le.id_lote = $1
+         AND h.estado = 'CONFIRMADO'
+         AND h.fecha_hora <= $2`,
+      [lote.id, fechaCorte],
+    );
 
-    // Evento inicial: Ingreso al depósito
-    movimientos.push({
-      tipo: 'INGRESO_DONACION',
-      fecha: new Date(lote.fechaIngreso).toISOString(),
-      cantidad: Number(lote.cantidadInicial),
-      saldoResultante: saldo,
-      referenciaId: lote.id,
-      destinoUOrigen: lote.donanteOrigen || 'Donación Comunitaria',
-      responsable: 'Operador de Ingreso / Donaciones',
-      observaciones: 'Partida inicial registrada con control de lote y vencimiento',
-    });
+    const eventos: EventoLinea[] = [
+      ...movimientosRes.rows.map((m: any): EventoLinea => {
+        const esIngreso = m.tipo === 'INGRESO';
+        return {
+          tipo: esIngreso ? 'INGRESO_DONACION' : 'DESPACHO_ENTREGA',
+          fecha: new Date(m.fecha),
+          cantidad: Number(m.cantidad),
+          referenciaId: esIngreso ? lote.id : m.entregaId,
+          destinoUOrigen: esIngreso ? lote.donanteOrigen || 'Donación Comunitaria' : m.comedorNombre,
+          responsable: m.responsable,
+          observaciones: esIngreso
+            ? 'Partida inicial registrada con control de lote y vencimiento'
+            : m.observaciones || 'Despacho registrado',
+          orden: esIngreso ? 0 : 1,
+        };
+      }),
+      ...confirmacionesRes.rows.map(
+        (h: any): EventoLinea => ({
+          tipo: 'CONFIRMACION_RECEPCION',
+          fecha: new Date(h.fecha),
+          cantidad: 0,
+          referenciaId: h.entregaId,
+          destinoUOrigen: h.comedorNombre,
+          responsable: h.responsable,
+          observaciones: h.observaciones || 'Recepción confirmada por el comedor',
+          orden: 2,
+        }),
+      ),
+    ].sort((a, b) => a.fecha.getTime() - b.fecha.getTime() || a.orden - b.orden);
 
-    // Despachos cronológicos hasta la fecha de corte
-    for (const entrega of entregasRes.rows) {
-      const cant = Number(entrega.cantidad);
-      saldo -= cant;
-      movimientos.push({
-        tipo: 'DESPACHO_ENTREGA',
-        fecha: new Date(entrega.fechaEntrega).toISOString(),
-        cantidad: cant,
+    // 4. Línea de tiempo con el saldo resultante después de cada evento
+    let saldo = 0;
+    const movimientos: MovimientoAuditoria[] = eventos.map((ev) => {
+      saldo += ev.cantidad;
+      return {
+        tipo: ev.tipo,
+        fecha: ev.fecha.toISOString(),
+        cantidad: Math.abs(ev.cantidad),
         saldoResultante: saldo,
-        referenciaId: entrega.entregaId,
-        destinoUOrigen: entrega.comedorNombre,
-        responsable: entrega.responsable,
-        observaciones: entrega.observaciones || `Despacho registrado (Estado: ${entrega.estado})`,
-      });
-    }
+        referenciaId: ev.referenciaId,
+        destinoUOrigen: ev.destinoUOrigen,
+        responsable: ev.responsable,
+        observaciones: ev.observaciones,
+      };
+    });
 
     return {
       tribunalDeCuentas: {
@@ -153,11 +204,12 @@ export class AuditoriaService {
     const res = await this.db.query(
       `SELECT l.id, l.codigo_lote as "codigoLote", l.alimento_nombre as "alimento",
               l.unidad_medida as "unidadMedida", l.cantidad_inicial as "cantidadInicial",
-              l.stock as "stockActual",
+              s.stock as "stockActual",
               TO_CHAR(l.fecha_vencimiento, 'YYYY-MM-DD') as "fechaVencimiento",
               d.nombre as "depositoNombre"
        FROM lotes l
        JOIN depositos d ON l.id_deposito = d.id
+       JOIN v_stock_lotes s ON s.id_lote = l.id
        ORDER BY l.codigo_lote ASC`,
     );
     return res.rows;

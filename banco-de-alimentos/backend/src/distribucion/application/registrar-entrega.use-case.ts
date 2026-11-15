@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Entrega, ItemEntrega, Lote } from '../domain/entities';
+import type { Entrega, ItemEntrega, Usuario } from '../domain/entities';
 import { ReferenciaInvalidaError } from '../domain/errors/domain-error';
 import {
   ComedorNoHabilitadoError,
@@ -16,7 +16,7 @@ export interface RegistrarEntregaInput {
   depositoId: string;
   comedorId: string;
   lotes: ItemEntrega[];
-  creadoPor: string;
+  usuario: Usuario;
   observaciones?: string;
 }
 
@@ -39,24 +39,28 @@ export class RegistrarEntrega {
     // 409: regla de negocio 1, solo comedores habilitados
     if (!comedor.habilitado) throw new ComedorNoHabilitadoError(comedor.id, comedor.nombre);
 
-    const ahora = new Date();
-    const lotesConDescuento: Lote[] = [];
+    // Si el mismo lote viene más de una vez, se valida contra la cantidad total pedida
+    const totalPorLote = new Map<string, number>();
     for (const item of input.lotes) {
-      const lote = await this.lotes.findById(item.loteId);
-      if (!lote) throw new ReferenciaInvalidaError('lote', item.loteId);
+      totalPorLote.set(item.loteId, (totalPorLote.get(item.loteId) ?? 0) + item.cantidad);
+    }
 
-      // regla 2: no superar el stock del lote
-      if (item.cantidad > lote.stockDisponible) {
+    for (const [loteId, cantidad] of totalPorLote) {
+      const lote = await this.lotes.findById(loteId);
+      if (!lote) throw new ReferenciaInvalidaError('lote', loteId);
+
+      // regla 2: no superar el stock del lote (el repositorio lo vuelve a verificar
+      // dentro de la transacción, con el lote bloqueado)
+      if (cantidad > lote.stockDisponible) {
         throw new StockInsuficienteError(
           lote.id,
           lote.stockDisponible,
-          item.cantidad,
+          cantidad,
           lote.alimento,
           lote.codigoLote,
           lote.unidadMedida,
         );
       }
-      lotesConDescuento.push({ ...lote, stockDisponible: lote.stockDisponible - item.cantidad });
     }
 
     const entrega: Entrega = {
@@ -69,15 +73,15 @@ export class RegistrarEntrega {
         cantidad: item.cantidad,
       })),
       estado: 'PENDIENTE',
-      fechaEntrega: ahora,
+      fechaEntrega: new Date(),
       fechaRecepcion: null,
-      creadoPor: input.creadoPor,
+      creadoPor: input.usuario.nombre,
+      creadoPorId: input.usuario.id,
       observaciones: input.observaciones?.trim() ? input.observaciones.trim() : null,
     };
 
-    // el stock se descuenta cuando todos los lotes pasaron las validaciones
-    for (const lote of lotesConDescuento) await this.lotes.save(lote);
-    await this.entregas.save(entrega);
+    // Solo inserciones: entrega, lotes, movimientos de stock y estado PENDIENTE
+    await this.entregas.registrar(entrega, input.usuario);
     return entrega;
   }
 }
