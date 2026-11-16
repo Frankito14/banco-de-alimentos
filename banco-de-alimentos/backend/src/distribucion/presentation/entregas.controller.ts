@@ -53,6 +53,11 @@ export class EntregasController {
     @CurrentUser() usuario: OidcJwtPayload & { id?: string; nombre?: string },
     @Res({ passthrough: true }) res: Response,
   ) {
+    if (usuario?.depositoAsignadoId && dto.depositoId && dto.depositoId !== usuario.depositoAsignadoId) {
+      throw new ForbiddenException(
+        'Solo podés registrar entregas desde tu depósito asignado.',
+      );
+    }
     const lotes = dto.lotes || dto.items || [];
     if (!lotes || lotes.length === 0) {
       throw new BadRequestException('Debés agregar al menos un alimento antes de registrar la entrega.');
