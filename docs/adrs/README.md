@@ -53,6 +53,9 @@ Selección de Monolito Modular como estilo arquitectónico, siguiendo las filoso
 - **Perjudica:**
   - **NFR #5: Disponibilidad y Recuperación ante Fallos:** Al ser un único desplegable, si un fallo crítico o saturación de memoria hace caer algún componente, se podría llegar a interrumpir la disponibilidad de todos los componentes a la vez.
 
+### Confirmación
+Prueba de arquitectura estática sobre la estructura de módulos: 0 acoplamientos o llamadas directas no autorizadas entre los Bounded Contexts.
+
 ---
 
 ## ADR-002: Adopción del Patrón Domain-Driven Design (DDD)
@@ -92,6 +95,9 @@ Vamos a organizar el sistema en módulos funcionales por área del negocio. En l
   - **NFR #7: Mantenibilidad y Modularidad:** La organización en módulos por área del negocio permite que los 3 equipos trabajen en paralelo sobre su propio módulo. Los casos de uso dependen de interfaces de repositorio, por lo que un cambio en la persistencia no obliga a modificar las reglas del negocio.
 - **Perjudica:** Ninguno
 
+### Confirmación
+Reglas de negocio verificadas con tests unitarios en memoria sin base de datos: 100% de test aprobados.
+
 ---
 
 ## ADR-003: Portabilidad, Contenerización y Entorno de Despliegue
@@ -126,6 +132,9 @@ Vamos a empaquetar todos los componentes de la solución en imágenes estandariz
   - **NFR #6: Portabilidad y Despliegue:** Se despliega con un solo comando en cualquier servidor con soporte para contenedores sin instalación manual de dependencias.
   - **NFR #5: Disponibilidad y Recuperación ante Fallos:** Garantiza persistencia mediante volúmenes, reinicio automático y orden de arranque verificado por healthchecks
 - **Perjudica:** Ninguno
+
+### Confirmación
+Despliegue con la ejecución de un solo comando en un servidor limpio: 100% de los contenedores en estado healthy en menos de 5 minutos.
 
 ---
 
@@ -162,6 +171,9 @@ Selección de Web App SPA (Single Page Application) con vistas diferenciadas por
 - **Favorece:**
   - **NFR #7: Mantenibilidad y Modularidad:** Desacopla completamente la interfaz de la lógica de negocio y persistencia mediante contratos de API
 - **Perjudica:** Ninguno
+
+### Confirmación
+Auditoría desde consola en navegador: 0 renderizados de páginas desde el servidor y 100% de la comunicación realizada mediante llamadas asincrónicas a la API REST.
 
 ---
 
@@ -201,6 +213,9 @@ Vamos a adoptar un motor de base de datos relacional para la persistencia centra
 - **Perjudica:**
   - **NFR #8: Portabilidad y Despliegue:** Al tener una estructura fuertemente tipada y rígida, obliga a ejecutar scripts de migración ordenados y versionados ante cualquier cambio estructural
 
+### Confirmación
+Fitness function automatizada y triggers en base de datos que rechazan con excepción cualquier sentencia UPDATE o DELETE: 0 registros alterados o borrados y reconstrucción del saldo de un lote a una fecha pasada en menos de 5 segundos.REST.
+
 ---
 
 ## ADR-006: Diseño de API REST con OpenAPI
@@ -237,6 +252,9 @@ Vamos a diseñar la API bajo el Nivel 2 del Modelo de Madurez de Richardson util
   - **NFR #3: Seguridad y Control de Acceso:** La especificación OpenAPI tipifica formalmente los esquemas de autenticación y documenta de forma predecible las respuestas según el rol.
 - **Perjudica:** Ninguno
 
+### Confirmación
+Test de contrato automatizado contra la especificación: 100% de las peticiones con estructuras o tipos inválidos rechazadas con código HTTP 400 y cuerpo normalizado bajo RFC 7807.
+
 ---
 
 ## ADR-007: Autenticación, Autorización y Seguridad (OIDC / OAuth2)
@@ -271,6 +289,9 @@ Vamos a delegar la gestión de identidades y la autenticación en un Proveedor d
   - **NFR #1: Trazabilidad y Auditoría:** Permite extraer el identificador y rol del usuario auditado en cada registro inmutable de lote o entrega
 - **Perjudica:**
   - **NFR #6: Portabilidad y Despliegue:** Incorpora un servicio adicional con su propio volumen de persistencia y parámetros de entorno en el despliegue del sistema.
+
+### Confirmación
+Pruebas de integración de seguridad: rechazo HTTP 401 sin token, rechazo HTTP 403 al invocar creación de entregas con rol de referente, y éxito HTTP 201 con rol de voluntario.
 
 ---
 
@@ -310,6 +331,9 @@ Vamos a implementar una integración síncrona protegida mediante una Capa Anti-
   - **NFR #6: Portabilidad y Despliegue:** Añade una dependencia de infraestructura en el sistema.
   - **NFR #5: Disponibilidad y Recuperación ante Fallos de Infraestructura:** La caché es un contenedor más que tiene que monitorearse.
 
+### Confirmación
+Chaos test deteniendo el servicio que simula el Padrón Provincial:  Respuesta exitosa (200) en menos de 60 ms por parte del sistema.
+
 ---
 
 ## ADR-009: Estrategia de Integración con Sistema de Rendición de Cuentas del Ministerio
@@ -347,3 +371,6 @@ Vamos a implementar una integración asincrónica utilizando una cola de mensaje
 - **Perjudica:**
   - **NFR #6: Portabilidad y Despliegue:** Incorpora un componente más que monitorear en el sistema.
   - **NFR #5: Disponibilidad y Recuperación ante Fallos de Infraestructura:** La cola de mensajes es un componente más que tiene que monitorearse.
+
+### Confirmación
+Prueba de re-ejecución del proceso batch nocturno ante fallos de red: 0 registros duplicados por clave de idempotencia y 100% de la cola vaciada tras el procesamiento exitoso. Si el sistema del Ministerio está caído, las entregas permanecen en la cola y se envían en el siguiente lote.

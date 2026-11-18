@@ -27,7 +27,7 @@ Este proyecto implementa el corte vertical del sistema del Banco de Alimentos: a
 2. Levantar todos los servicios:
    Desde la raíz del repositorio, compilar e iniciar los contenedores en segundo plano:
    
-   `docker compose up -d --build`
+   `docker compose --env-file ./banco-de-alimentos/.env up -d --build`
 
 3. Verificar el estado del stack:
    Asegurarse de que todos los servicios se encuentren en estado Up o healthy:
@@ -52,13 +52,9 @@ La pantalla de inicio cuenta con acceso rápido de 1 clic para cada rol de domin
 
   `docker compose down`
 
-* Reiniciar los servicios:
-
-  `docker compose restart`
-
 * Reiniciar desde cero (eliminando volúmenes y base de datos):
   
-  `docker compose down -v`
+  `docker compose down -v --remove-orphans`
 
   `docker compose up -d --build`
 
